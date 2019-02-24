@@ -138,9 +138,9 @@ private:
   {
     // Calculate the new Front vector
     glm::vec3 front;
-    front.x = cos(glm::radians(yam_)) * cos(glm::radians(pitch_));
-    front.y = sin(glm::radians(pitch_));
-    front.z = sin(glm::radians(yam_)) * cos(glm::radians(pitch_));
+    front.x = std::cos(glm::radians(yam_)) * std::cos(glm::radians(pitch_));
+    front.y = std::sin(glm::radians(pitch_));
+    front.z = std::sin(glm::radians(yam_)) * std::cos(glm::radians(pitch_));
     front_ = glm::normalize(front);
     // Also re-calculate the Right and Up vector
     right_ = glm::normalize(glm::cross(
