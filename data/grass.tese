@@ -10,7 +10,7 @@ layout(location = 1) patch in vec4 tese_v2;
 layout(location = 2) patch in vec4 tese_up;
 layout(location = 3) patch in vec4 tese_dir;
 
-layout(location = 0) out vec3 nor;
+layout(location = 0) out vec3 normal;
 layout(location = 1) out vec2 uv;
 
 void main() {
@@ -28,14 +28,14 @@ void main() {
   const vec3 c = a + v * (b - a);
   const vec3 t1 = dir;
   
-  const vec3 c0 = c - t1 * width;
-  const vec3 c1 = c + t1 * width;
+  const vec3 c0 = c - t1 * width * 0.5;
+  const vec3 c1 = c + t1 * width * 0.5;
   const vec3 t0 = normalize(b - a);
 
   const float t = u + 0.5 * v - u * v;
   const vec3 p = (1.0 - t) * c0 + t * c1;
   
   uv = vec2(u, v);
-  nor = normalize(cross(t0, t1));
+  normal = normalize(cross(t0, t1));
   gl_Position = proj * view * vec4(p, 1.0);
 }

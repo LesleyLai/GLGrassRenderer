@@ -16,18 +16,17 @@ layout(location = 3) patch out vec4 tese_dir;
 layout(vertices = 1) out;
 
 void main() {
-  // Don't move the origin location of the patch
   gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
 
-  tese_v1 = tv1[0];
-  tese_v2 = tv2[0];
-  tese_up = tup[0];
-  tese_dir = twd[0];
+  tese_v1 = tv1[gl_InvocationID];
+  tese_v2 = tv2[gl_InvocationID];
+  tese_up = tup[gl_InvocationID];
+  tese_dir = twd[gl_InvocationID];
 
-  gl_TessLevelInner[0] = 1.0;
+  gl_TessLevelInner[0] = 2.0;
   gl_TessLevelInner[1] = 7.0;
   gl_TessLevelOuter[0] = 7.0;
-  gl_TessLevelOuter[1] = 1.0;
+  gl_TessLevelOuter[1] = 2.0;
   gl_TessLevelOuter[2] = 7.0;
-  gl_TessLevelOuter[3] = 1.0;
+  gl_TessLevelOuter[3] = 2.0;
 }

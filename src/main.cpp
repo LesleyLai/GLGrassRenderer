@@ -96,8 +96,22 @@ public:
 
     {
       std::vector<Blade> blades;
-      blades.emplace_back(glm::vec4(0, 0, 0, 1), glm::vec4(0, 0.1, 0, 0.1),
-                          glm::vec4(-0.1, 0.1, 0, 0.01), glm::vec4(0, 1, 0, 1));
+      blades.emplace_back(glm::vec4(0, 0, 0, 1), glm::vec4(0, 0.2, 0, 1),
+                          glm::vec4(-0.1, 0.2, 0, 0.05), glm::vec4(0, 1, 0, 1));
+
+      blades.emplace_back(glm::vec4(0, 0, 0.1, 1), glm::vec4(0, 0.2, 0.1, 1),
+                          glm::vec4(-0.1, 0.2, 0.1, 0.05),
+                          glm::vec4(0, 1, 0, 1));
+
+      blades.emplace_back(glm::vec4(0, 0, 0.2, 1), glm::vec4(0, 0.2, 0.2, 1),
+                          glm::vec4(-0.1, 0.2, 0.2, 0.05),
+                          glm::vec4(0, 1, 0, 1));
+
+      blades.emplace_back(glm::vec4(0, 0, 0.3, 1), glm::vec4(0, 0.2, 0.3, 1),
+                          glm::vec4(-0.1, 0.2, 0.3, 0.05),
+                          glm::vec4(0, 1, 0, 1));
+
+      glPatchParameteri(GL_PATCH_VERTICES, 1);
 
       unsigned int vbo;
       glGenVertexArrays(1, &grass_vao_);
@@ -111,22 +125,22 @@ public:
 
       // v0 attribute
       glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
-                            (void*)nullptr);
+                            reinterpret_cast<void*>(offsetof(Blade, v0)));
       glEnableVertexAttribArray(0);
 
       // v1 attribute
       glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
-                            (void*)(4 * sizeof(float)));
+                            reinterpret_cast<void*>(offsetof(Blade, v1)));
       glEnableVertexAttribArray(1);
 
       // v2 attribute
       glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
-                            (void*)(8 * sizeof(float)));
+                            reinterpret_cast<void*>(offsetof(Blade, v2)));
       glEnableVertexAttribArray(2);
 
       // dir attribute
       glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
-                            (void*)(12 * sizeof(float)));
+                            reinterpret_cast<void*>(offsetof(Blade, up)));
       glEnableVertexAttribArray(3);
 
       grass_shader_ = ShaderBuilder{}
@@ -180,8 +194,7 @@ public:
       grass_shader_.setMat4("view", view);
       grass_shader_.setMat4("proj", projection);
       glBindVertexArray(grass_vao_);
-      glDrawArrays(GL_PATCHES, 0, 3);
-      // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+      glDrawArrays(GL_PATCHES, 0, 24);
 
       glfwSwapBuffers(window_);
       glfwPollEvents();
