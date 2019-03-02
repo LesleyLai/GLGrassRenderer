@@ -72,6 +72,11 @@ public:
     glUseProgram(id_);
   }
 
+  [[nodiscard]] unsigned int id() const
+  {
+    return id_;
+  }
+
   void setBool(const std::string& name, bool value) const
   {
     glUniform1i(glGetUniformLocation(id_, name.c_str()),

@@ -7,7 +7,6 @@ layout(location = 1) in vec4 v1;
 layout(location = 2) in vec4 v2;
 layout(location = 3) in vec4 up;
 
-
 layout(location = 0) out vec4 tesc_v1;
 layout(location = 1) out vec4 tesc_v2;
 layout(location = 2) out vec4 tesc_up;

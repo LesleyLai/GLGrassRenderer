@@ -1,8 +1,5 @@
 #version 450
 
-uniform mat4 view;
-uniform mat4 proj;
-
 layout(location = 0) in vec4 tv1[];
 layout(location = 1) in vec4 tv2[];
 layout(location = 2) in vec4 tup[];

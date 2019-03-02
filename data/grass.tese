@@ -2,8 +2,10 @@
 
 layout(quads, equal_spacing, ccw) in;
 
-uniform mat4 view;
-uniform mat4 proj;
+layout(set = 0, binding = 0) uniform CameraBufferObject {
+    mat4 view;
+    mat4 proj;
+} camera;
 
 layout(location = 0) patch in vec4 tese_v1;
 layout(location = 1) patch in vec4 tese_v2;
@@ -37,5 +39,5 @@ void main() {
   
   uv = vec2(u, v);
   normal = normalize(cross(t0, t1));
-  gl_Position = proj * view * vec4(p, 1.0);
+  gl_Position = camera.proj * camera.view * vec4(p, 1.0);
 }

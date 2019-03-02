@@ -95,21 +95,8 @@ public:
     }
 
     {
-      std::vector<Blade> blades;
-      blades.emplace_back(glm::vec4(0, 0, 0, 1), glm::vec4(0, 0.2, 0, 1),
-                          glm::vec4(-0.1, 0.2, 0, 0.05), glm::vec4(0, 1, 0, 1));
-
-      blades.emplace_back(glm::vec4(0, 0, 0.1, 1), glm::vec4(0, 0.2, 0.1, 1),
-                          glm::vec4(-0.1, 0.2, 0.1, 0.05),
-                          glm::vec4(0, 1, 0, 1));
-
-      blades.emplace_back(glm::vec4(0, 0, 0.2, 1), glm::vec4(0, 0.2, 0.2, 1),
-                          glm::vec4(-0.1, 0.2, 0.2, 0.05),
-                          glm::vec4(0, 1, 0, 1));
-
-      blades.emplace_back(glm::vec4(0, 0, 0.3, 1), glm::vec4(0, 0.2, 0.3, 1),
-                          glm::vec4(-0.1, 0.2, 0.3, 0.05),
-                          glm::vec4(0, 1, 0, 1));
+      blades_.emplace_back(glm::vec4(0, 0, 0, 1), glm::vec4(0, 0.4, 0, 1),
+                           glm::vec4(0, 0.4, 0, 0.1), glm::vec4(0, 1, 0, 1));
 
       glPatchParameteri(GL_PATCH_VERTICES, 1);
 
@@ -120,8 +107,8 @@ public:
 
       glBindBuffer(GL_ARRAY_BUFFER, vbo);
       glBufferData(GL_ARRAY_BUFFER,
-                   static_cast<GLsizei>(blades.size() * sizeof(Blade)),
-                   blades.data(), GL_STATIC_DRAW);
+                   static_cast<GLsizei>(blades_.size() * sizeof(Blade)),
+                   blades_.data(), GL_STATIC_DRAW);
 
       // v0 attribute
       glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
@@ -149,7 +136,16 @@ public:
                           .load("grass.tese", Shader::Type::TessEval)
                           .load("grass.frag", Shader::Type::Fragment)
                           .build();
+
+      grass_compute_shader_ =
+          ShaderBuilder{}.load("grass.comp", Shader::Type::Compute).build();
     }
+
+    glGenBuffers(1, &cameraUniformBuffer_);
+    glBindBuffer(GL_UNIFORM_BUFFER, cameraUniformBuffer_);
+    glBufferData(GL_UNIFORM_BUFFER, 128, nullptr,
+                 GL_STATIC_DRAW); // allocate 150 bytes of memory
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
   }
 
   void run()
@@ -168,17 +164,18 @@ public:
       // activate shader
       land_shader_.use();
 
-      // pass projection matrix to shader (note that in this case it could
-      // change every frame)
+      // camera/view transformation
+      glm::mat4 view = camera_.viewMatrix();
       glm::mat4 projection = glm::perspective(glm::radians(camera_.zoom()),
                                               static_cast<float>(width_) /
                                                   static_cast<float>(height_),
                                               0.1f, 100.0f);
-      land_shader_.setMat4("proj", projection);
+      glBindBufferBase(GL_UNIFORM_BUFFER, 0, cameraUniformBuffer_);
+      glBindBuffer(GL_UNIFORM_BUFFER, cameraUniformBuffer_);
 
-      // camera/view transformation
-      glm::mat4 view = camera_.viewMatrix();
-      land_shader_.setMat4("view", view);
+      glBufferSubData(GL_UNIFORM_BUFFER, 0, 64, &view);
+      glBufferSubData(GL_UNIFORM_BUFFER, 64, 64, &projection);
+      glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
       // render boxes
       // calculate the model matrix for each object and pass it to shader before
@@ -188,13 +185,10 @@ public:
       land_shader_.setMat4("model", model);
       land_->render();
 
-      // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
       grass_shader_.use();
       grass_shader_.setMat4("model", model);
-      grass_shader_.setMat4("view", view);
-      grass_shader_.setMat4("proj", projection);
       glBindVertexArray(grass_vao_);
-      glDrawArrays(GL_PATCHES, 0, 24);
+      glDrawArrays(GL_PATCHES, 0, static_cast<GLsizei>(blades_.size()));
 
       glfwSwapBuffers(window_);
       glfwPollEvents();
@@ -206,6 +200,11 @@ public:
     glfwDestroyWindow(window_);
     glfwTerminate();
   }
+
+  App(const App& app) = delete;
+  App& operator=(const App& app) = delete;
+  App(App&& app) = delete;
+  App& operator=(App&& app) = delete;
 
   [[nodiscard]] Camera& camera() noexcept
   {
@@ -237,6 +236,10 @@ private:
 
   unsigned int grass_vao_ = 0;
   ShaderProgram grass_shader_{};
+  ShaderProgram grass_compute_shader_{};
+  std::vector<Blade> blades_;
+
+  unsigned int cameraUniformBuffer_ = 0;
 
   // camera
   Camera camera_{glm::vec3(0.0f, 1.0f, 6.0f)};
@@ -245,8 +248,7 @@ private:
   float lastFrame = 0.0f;
 };
 
-int main()
-try {
+int main() try {
   App app(1920, 1080, "Grass Renderer");
   app.run();
 } catch (const std::exception& e) {
