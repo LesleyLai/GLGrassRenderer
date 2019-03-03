@@ -73,16 +73,17 @@ public:
     }
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
     {
       // clang-format off
       std::vector<Vertex> verts {
         {{-1.0f, 0.0f, -1.0f},  {0.0f, 1.0f}},
+        {{1.0f, 0.0f,  1.0f},   {1.0f, 0.0f}},
         {{1.0f, 0.0f, -1.0f},   {1.0f, 1.0f}},
         {{1.0f, 0.0f,  1.0f},   {1.0f, 0.0f}},
-        {{1.0f, 0.0f,  1.0f},   {1.0f, 0.0f}},
-        {{-1.0f, 0.0f,  1.0f},  {0.0f, 0.0f}},
         {{-1.0f, 0.0f, -1.0f},  {0.0f, 1.0f}},
+        {{-1.0f, 0.0f,  1.0f},  {0.0f, 0.0f}},
       };
       // clang-format on
       land_ = std::make_unique<Model>(verts, "GrassGreenTexture0001.jpg");

@@ -5,12 +5,18 @@ layout(set = 0, binding = 0) uniform CameraBufferObject {
     mat4 proj;
 } camera;
 
-layout(location = 0) in vec3 normal;
-layout(location = 1) in vec2 uv;
+in TESE_OUT
+{
+  vec3 normal;
+  vec2 uv;
+} frag_in;
 
 layout(location = 0) out vec4 outColor;
 
 void main() {
+  vec3 normal = frag_in.normal;
+  vec2 uv = frag_in.uv;
+
   vec3 upperColor = vec3(0.4,1,0.1);
   vec3 lowerColor = vec3(0.0,0.2,0.1);
 

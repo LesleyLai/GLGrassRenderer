@@ -1,24 +1,30 @@
 #version 450
 
-layout(location = 0) in vec4 tv1[];
-layout(location = 1) in vec4 tv2[];
-layout(location = 2) in vec4 tup[];
-layout(location = 3) in vec4 twd[];
+in VS_OUT
+{
+  vec4 v1;
+  vec4 v2;
+  vec4 up;
+  vec4 dir;
+} tesc_in[];
 
-layout(location = 0) patch out vec4 tese_v1;
-layout(location = 1) patch out vec4 tese_v2;
-layout(location = 2) patch out vec4 tese_up;
-layout(location = 3) patch out vec4 tese_dir;
+patch out TESC_OUT
+{
+  vec4 v1;
+  vec4 v2;
+  vec4 up;
+  vec4 dir;
+} tesc_out;
 
 layout(vertices = 1) out;
 
 void main() {
   gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
 
-  tese_v1 = tv1[gl_InvocationID];
-  tese_v2 = tv2[gl_InvocationID];
-  tese_up = tup[gl_InvocationID];
-  tese_dir = twd[gl_InvocationID];
+  tesc_out.v1 = tesc_in[gl_InvocationID].v1;
+  tesc_out.v2 = tesc_in[gl_InvocationID].v2;
+  tesc_out.up = tesc_in[gl_InvocationID].up;
+  tesc_out.dir = tesc_in[gl_InvocationID].dir;
 
   gl_TessLevelInner[0] = 2.0;
   gl_TessLevelInner[1] = 7.0;
