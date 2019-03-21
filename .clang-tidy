@@ -2,6 +2,7 @@
 Checks:          '*,
 -clang-analyzer-deadcode.DeadStores,
 -clang-analyzer-alpha.*,
+-cppcoreguidelines-pro-type-reinterpret-cast,
 -readability-static-accessed-through-instance,
 -readability-braces-around-statements,
 -readability-implicit-bool-cast,

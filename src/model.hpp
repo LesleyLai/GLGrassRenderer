@@ -22,8 +22,8 @@ public:
 
 private:
   std::vector<Vertex> vertices_;
-  unsigned int vao_;
-  unsigned int texture_;
+  unsigned int vao_ = 0;
+  unsigned int texture_ = 0;
 };
 
 #endif // MODEL_HPP

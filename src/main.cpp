@@ -7,6 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <random>
 #include <string_view>
 #include <vector>
 
@@ -73,7 +74,7 @@ public:
     }
 
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
+    // glEnable(GL_CULL_FACE);
 
     {
       // clang-format off
@@ -96,20 +97,39 @@ public:
     }
 
     {
-      blades_.emplace_back(glm::vec4(0, 0, 0, 1), glm::vec4(0, 0.4, 0, 1),
-                           glm::vec4(0, 0.4, 0, 0.1), glm::vec4(0, 1, 0, 1));
+      std::random_device rd;
+      std::mt19937 gen(rd());
+      std::uniform_real_distribution<float> orientation_dis(0, 3.1415926);
+      std::uniform_real_distribution<float> height_dis(0.3, 0.6);
+      std::uniform_real_distribution<float> dis(-1, 1);
+
+      for (int i = 0; i < 20; ++i) {
+        for (int j = 0; j < 20; ++j) {
+          const auto x = static_cast<float>(i) / 10 - 1 + dis(gen) * 0.1f;
+          const auto y = static_cast<float>(j) / 10 - 1 + dis(gen) * 0.1f;
+          const auto height = height_dis(gen);
+
+          blades_.emplace_back(glm::vec4(x, 0, y, orientation_dis(gen)),
+                               glm::vec4(x, height, y, height),
+                               glm::vec4(x, height, y, 0.1),
+                               glm::vec4(0, height, 0, 0.7 + dis(gen) * 0.3));
+        }
+      }
 
       glPatchParameteri(GL_PATCH_VERTICES, 1);
 
       unsigned int vbo;
       glGenVertexArrays(1, &grass_vao_);
-      glGenBuffers(1, &vbo);
       glBindVertexArray(grass_vao_);
 
-      glBindBuffer(GL_ARRAY_BUFFER, vbo);
-      glBufferData(GL_ARRAY_BUFFER,
+      glGenBuffers(1, &vbo);
+
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo);
+      glBufferData(GL_SHADER_STORAGE_BUFFER,
                    static_cast<GLsizei>(blades_.size() * sizeof(Blade)),
                    blades_.data(), GL_STATIC_DRAW);
+
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
       // v0 attribute
       glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
@@ -131,15 +151,20 @@ public:
                             reinterpret_cast<void*>(offsetof(Blade, up)));
       glEnableVertexAttribArray(3);
 
+      grass_compute_shader_ =
+          ShaderBuilder{}.load("grass.comp", Shader::Type::Compute).build();
+      grass_compute_shader_.use();
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo);
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, vbo);
+
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
       grass_shader_ = ShaderBuilder{}
                           .load("grass.vert", Shader::Type::Vertex)
                           .load("grass.tesc", Shader::Type::TessControl)
                           .load("grass.tese", Shader::Type::TessEval)
                           .load("grass.frag", Shader::Type::Fragment)
                           .build();
-
-      grass_compute_shader_ =
-          ShaderBuilder{}.load("grass.comp", Shader::Type::Compute).build();
     }
 
     glGenBuffers(1, &cameraUniformBuffer_);
@@ -153,8 +178,8 @@ public:
   {
     while (!glfwWindowShouldClose(window_)) {
       float currentFrame = glfwGetTime();
-      deltaTime_ = currentFrame - lastFrame;
-      lastFrame = currentFrame;
+      deltaTime_ = currentFrame - lastFrame_;
+      lastFrame_ = currentFrame;
 
       processInput(window_);
 
@@ -186,9 +211,16 @@ public:
       land_shader_.setMat4("model", model);
       land_->render();
 
+      glBindVertexArray(grass_vao_);
+
+      { // launch compute shaders!
+        grass_compute_shader_.use();
+        grass_compute_shader_.setFloat("current_time", currentFrame);
+        glDispatchCompute(32, 1, 1);
+      }
+
       grass_shader_.use();
       grass_shader_.setMat4("model", model);
-      glBindVertexArray(grass_vao_);
       glDrawArrays(GL_PATCHES, 0, static_cast<GLsizei>(blades_.size()));
 
       glfwSwapBuffers(window_);
@@ -246,10 +278,11 @@ private:
   Camera camera_{glm::vec3(0.0f, 1.0f, 6.0f)};
 
   float deltaTime_ = 0.0f; // time between current frame and last frame
-  float lastFrame = 0.0f;
+  float lastFrame_ = 0.0f;
 };
 
-int main() try {
+int main()
+try {
   App app(1920, 1080, "Grass Renderer");
   app.run();
 } catch (const std::exception& e) {
@@ -310,9 +343,9 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     firstMouse = false;
   }
 
-  auto xoffset = static_cast<float>(xpos - lastX);
-  auto yoffset = static_cast<float>(
-      lastY - ypos); // reversed since y-coordinates go from bottom to top
+  // reversed since y-coordinates go from bottom to top
+  const auto xoffset = static_cast<float>(xpos) - lastX;
+  const auto yoffset = lastY - static_cast<float>(ypos);
 
   lastX = static_cast<float>(xpos);
   lastY = static_cast<float>(ypos);
