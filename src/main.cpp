@@ -99,20 +99,21 @@ public:
     {
       std::random_device rd;
       std::mt19937 gen(rd());
-      std::uniform_real_distribution<float> orientation_dis(0, 3.1415926);
-      std::uniform_real_distribution<float> height_dis(0.3, 0.6);
+      std::uniform_real_distribution<float> orientation_dis(0, 3.1415926f);
+      std::uniform_real_distribution<float> height_dis(0.3f, 0.6f);
       std::uniform_real_distribution<float> dis(-1, 1);
 
       for (int i = 0; i < 20; ++i) {
         for (int j = 0; j < 20; ++j) {
           const auto x = static_cast<float>(i) / 10 - 1 + dis(gen) * 0.1f;
           const auto y = static_cast<float>(j) / 10 - 1 + dis(gen) * 0.1f;
-          const auto height = height_dis(gen);
+          const auto blade_height = height_dis(gen);
 
-          blades_.emplace_back(glm::vec4(x, 0, y, orientation_dis(gen)),
-                               glm::vec4(x, height, y, height),
-                               glm::vec4(x, height, y, 0.1),
-                               glm::vec4(0, height, 0, 0.7 + dis(gen) * 0.3));
+          blades_.emplace_back(
+              glm::vec4(x, 0, y, orientation_dis(gen)),
+              glm::vec4(x, blade_height, y, blade_height),
+              glm::vec4(x, blade_height, y, 0.1),
+              glm::vec4(0, blade_height, 0, 0.7 + dis(gen) * 0.3));
         }
       }
 
@@ -177,7 +178,7 @@ public:
   void run()
   {
     while (!glfwWindowShouldClose(window_)) {
-      float currentFrame = glfwGetTime();
+      float currentFrame = static_cast<float>(glfwGetTime());
       deltaTime_ = currentFrame - lastFrame_;
       lastFrame_ = currentFrame;
 

@@ -9,7 +9,7 @@ set(compiler_included true)
 add_library(compiler_warnings INTERFACE)
 
 if(MSVC)
-  target_compile_options(compiler_warnings INTERFACE /W4 "/permissive-")
+  target_compile_options(compiler_warnings INTERFACE /W3 "/permissive-")
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(compiler_warnings
                          INTERFACE -Wall
