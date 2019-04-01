@@ -281,8 +281,7 @@ private:
   float lastFrame_ = 0.0f;
 };
 
-int main()
-try {
+int main() try {
   App app(1920, 1080, "Grass Renderer");
   app.run();
 } catch (const std::exception& e) {

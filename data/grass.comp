@@ -51,7 +51,7 @@ void main() {
 	}
 	barrier(); // Wait till all threads reach this point
 
-        unsigned int index = gl_GlobalInvocationID.x;
+        uint index = gl_GlobalInvocationID.x;
 	vec3 v0 = inputBlades[index].v0.xyz;
 	vec3 v1 = inputBlades[index].v1.xyz;
 	vec3 v2 = inputBlades[index].v2.xyz;

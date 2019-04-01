@@ -14,8 +14,8 @@ void checkCompilingError(unsigned int shader_id)
     char info_log[max_log_size];
     glGetShaderInfoLog(shader_id, max_log_size, nullptr,
                        static_cast<char*>(info_log));
-    throw std::runtime_error{
-        fmt::format("Shader compilation error: {}", info_log)};
+    throw std::runtime_error{fmt::format(
+        "Shader compilation error for shader {}: {}", shader_id, info_log)};
   }
 }
 
