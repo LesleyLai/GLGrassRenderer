@@ -18,9 +18,11 @@
 #include <fmt/format.h>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action,
+                           int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
-void processInput(GLFWwindow* window);
+void process_input(GLFWwindow* window);
 
 // Indirect drawing structure
 struct NumBlades {
@@ -65,7 +67,8 @@ public:
     }
     glfwMakeContextCurrent(window_);
     glfwSetFramebufferSizeCallback(window_, framebuffer_size_callback);
-    glfwSetCursorPosCallback(window_, mouse_callback);
+    glfwSetMouseButtonCallback(window_, mouse_button_callback);
+    glfwSetCursorPosCallback(window_, cursor_pos_callback);
     glfwSetScrollCallback(window_, scroll_callback);
 
     glfwSetWindowUserPointer(window_, this);
@@ -203,7 +206,7 @@ public:
       deltaTime_ = currentFrame - lastFrame_;
       lastFrame_ = currentFrame;
 
-      processInput(window_);
+      process_input(window_);
 
       // render
       glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -281,10 +284,22 @@ public:
     return height_;
   }
 
+  [[nodiscard]] bool right_clicking() const
+  {
+    return right_clicking_;
+  }
+
+  void set_right_clicking(bool right_clicking)
+  {
+    right_clicking_ = right_clicking;
+  }
+
 private:
   GLFWwindow* window_;
   int width_;
   int height_;
+
+  bool right_clicking_ = false;
 
   std::unique_ptr<Model> land_;
   ShaderProgram land_shader_{};
@@ -311,9 +326,8 @@ int main() try {
 } catch (...) {
   fmt::print(stderr, "Unknown exception!\n");
 }
-// process all input: query GLFW whether relevant keys are pressed/released this
-// frame and react accordingly
-void processInput(GLFWwindow* window)
+
+void process_input(GLFWwindow* window)
 {
   auto* app_ptr = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
   auto& camera = app_ptr->camera();
@@ -347,7 +361,7 @@ void framebuffer_size_callback(GLFWwindow* /*window*/, int width, int height)
 
 // glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
-void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos)
 {
   auto* app_ptr = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
   auto& camera = app_ptr->camera();
@@ -371,7 +385,24 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
   lastX = static_cast<float>(xpos);
   lastY = static_cast<float>(ypos);
 
-  camera.mouse_movement(xoffset, yoffset);
+  if (app_ptr->right_clicking()) {
+    camera.mouse_movement(xoffset, yoffset);
+  }
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action,
+                           int /*mods*/)
+{
+  auto* app_ptr = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+  if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+    switch (action) {
+    case GLFW_PRESS:
+      app_ptr->set_right_clicking(true);
+      break;
+    case GLFW_RELEASE:
+      app_ptr->set_right_clicking(false);
+    }
+  }
 }
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
