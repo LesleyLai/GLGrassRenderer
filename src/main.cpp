@@ -49,6 +49,44 @@ struct Blade {
   }
 };
 
+[[nodiscard]] std::unique_ptr<Mesh> generate_terrain_model()
+{
+  constexpr std::size_t terrian_x_max = 100;
+  constexpr std::size_t terrian_y_max = 100;
+
+  std::vector<Vertex> verts;
+  std::vector<std::uint32_t> indices;
+  verts.reserve(terrian_x_max * terrian_y_max * 4);
+  indices.reserve(terrian_x_max * terrian_y_max * 6);
+
+  for (std::size_t x = 0; x < terrian_x_max; ++x) {
+    const float x_offset = -static_cast<float>(terrian_x_max) + 2 * x;
+    fmt::print("X offset: {}\n", x_offset);
+    for (std::size_t y = 0; y < terrian_y_max; ++y) {
+      const float y_offset = -static_cast<float>(terrian_y_max) + 2 * y;
+      verts.push_back({{1.0f + x_offset, 0.0f, 1.0f + y_offset}, {1.0f, 0.0f}});
+      verts.push_back(
+          {{1.0f + x_offset, 0.0f, -1.0f + y_offset}, {1.0f, 1.0f}});
+      verts.push_back(
+          {{-1.0f + x_offset, 0.0f, -1.0f + y_offset}, {0.0f, 1.0f}});
+      verts.push_back(
+          {{-1.0f + x_offset, 0.0f, 1.0f + y_offset}, {0.0f, 0.0f}});
+
+      const auto index_base =
+          static_cast<std::uint32_t>(4 * (y + x * terrian_y_max));
+      indices.push_back(index_base);
+      indices.push_back(index_base + 1);
+      indices.push_back(index_base + 3);
+      indices.push_back(index_base + 1);
+      indices.push_back(index_base + 2);
+      indices.push_back(index_base + 3);
+    }
+  }
+
+  return std::make_unique<Mesh>(std::move(verts), std::move(indices),
+                                "GrassGreenTexture0001.jpg");
+}
+
 class App {
 public:
   App(int width, int height, std::string_view title)
@@ -85,26 +123,15 @@ public:
     }
 
     glEnable(GL_DEPTH_TEST);
-    // glEnable(GL_CULL_FACE);
 
     {
-      // clang-format off
-      std::vector<Vertex> verts {
-        {{-1.0f, 0.0f, -1.0f},  {0.0f, 1.0f}},
-        {{1.0f, 0.0f,  1.0f},   {1.0f, 0.0f}},
-        {{1.0f, 0.0f, -1.0f},   {1.0f, 1.0f}},
-        {{1.0f, 0.0f,  1.0f},   {1.0f, 0.0f}},
-        {{-1.0f, 0.0f, -1.0f},  {0.0f, 1.0f}},
-        {{-1.0f, 0.0f,  1.0f},  {0.0f, 0.0f}},
-      };
-      // clang-format on
-      land_ = std::make_unique<Model>(verts, "GrassGreenTexture0001.jpg");
-      land_shader_ = ShaderBuilder{}
-                         .load("land.vert.glsl", Shader::Type::Vertex)
-                         .load("land.frag.glsl", Shader::Type::Fragment)
-                         .build();
-      land_shader_.use();
-      land_shader_.setInt("texture1", 0);
+      terrain_model_ = generate_terrain_model();
+      terrain_shader_ = ShaderBuilder{}
+                            .load("land.vert.glsl", Shader::Type::Vertex)
+                            .load("land.frag.glsl", Shader::Type::Fragment)
+                            .build();
+      terrain_shader_.use();
+      terrain_shader_.setInt("texture1", 0);
     }
 
     {
@@ -213,7 +240,7 @@ public:
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       // activate shader
-      land_shader_.use();
+      terrain_shader_.use();
 
       // camera/view transformation
       glm::mat4 view = camera_.viewMatrix();
@@ -233,8 +260,8 @@ public:
       // drawing
       glm::mat4 model = glm::mat4(1.0f); // Identity
       model = glm::scale(model, glm::vec3(2, 2, 2));
-      land_shader_.setMat4("model", model);
-      land_->render();
+      terrain_shader_.setMat4("model", model);
+      terrain_model_->render();
 
       glBindVertexArray(grass_vao_);
 
@@ -301,8 +328,8 @@ private:
 
   bool right_clicking_ = false;
 
-  std::unique_ptr<Model> land_;
-  ShaderProgram land_shader_{};
+  std::unique_ptr<Mesh> terrain_model_;
+  ShaderProgram terrain_shader_{};
 
   unsigned int grass_vao_ = 0;
   ShaderProgram grass_shader_{};

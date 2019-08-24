@@ -3,21 +3,51 @@
 #include <glad/glad.h>
 
 #include <GLFW/glfw3.h>
-#include <stb_image.h>
 
-Model::Model(std::vector<Vertex> vertices, std::string_view texture_file)
-    : vertices_{std::move(vertices)}
+#include <iostream>
+
+Mesh::~Mesh()
 {
-  unsigned int vbo;
-  glGenVertexArrays(1, &vao_);
-  glGenBuffers(1, &vbo);
+  glDeleteTextures(1, &texture_);
+  glDeleteVertexArrays(1, &vao_);
+}
 
+Mesh& Mesh::operator=(Mesh&& rhs)
+{
+  std::swap(vao_, rhs.vao_);
+  std::swap(texture_, rhs.texture_);
+  std::swap(indices_count_, rhs.indices_count_);
+  return *this;
+}
+
+Mesh::Mesh(Mesh&& rhs)
+    : vao_{rhs.vao_}, texture_{rhs.texture_}, indices_count_{rhs.indices_count_}
+{
+  rhs.vao_ = 0;
+  rhs.texture_ = 0;
+  rhs.indices_count_ = 0;
+}
+
+Mesh::Mesh(std::vector<Vertex> vertices, std::vector<std::uint32_t> indices,
+           std::string_view texture_file)
+    : indices_count_{static_cast<GLsizei>(indices.size())}
+{
+  glGenVertexArrays(1, &vao_);
   glBindVertexArray(vao_);
 
+  unsigned int vbo;
+  glGenBuffers(1, &vbo);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   glBufferData(GL_ARRAY_BUFFER,
-               static_cast<GLsizei>(vertices_.size() * sizeof(Vertex)),
-               vertices_.data(), GL_STATIC_DRAW);
+               static_cast<GLsizei>(vertices.size() * sizeof(Vertex)),
+               vertices.data(), GL_STATIC_DRAW);
+
+  unsigned int ebo;
+  glGenBuffers(1, &ebo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               static_cast<GLsizei>(indices.size() * sizeof(std::uint32_t)),
+               indices.data(), GL_STATIC_DRAW);
 
   // position attribute
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
@@ -28,17 +58,10 @@ Model::Model(std::vector<Vertex> vertices, std::string_view texture_file)
                         reinterpret_cast<void*>(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
 
-  // glDeleteBuffers(1, &vbo);
-
   texture_ = load_texture(texture_file);
 }
 
-// Model::~Model()
-//{
-//  glDeleteVertexArrays(1, &vao_);
-//}
-
-void Model::render()
+void Mesh::render()
 {
   glBindVertexArray(vao_);
 
@@ -46,5 +69,5 @@ void Model::render()
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texture_);
 
-  glDrawArrays(GL_TRIANGLES, 0, 6);
+  glDrawElements(GL_TRIANGLES, indices_count_, GL_UNSIGNED_INT, nullptr);
 }

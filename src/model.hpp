@@ -14,16 +14,25 @@ struct Vertex {
   glm::vec2 tex_coord;
 };
 
-class Model {
+class Mesh {
 public:
-  explicit Model(std::vector<Vertex> vertices, std::string_view texture_file);
+  explicit Mesh(std::vector<Vertex> vertices,
+                std::vector<std::uint32_t> indices,
+                std::string_view texture_file);
+  ~Mesh();
+
+  Mesh(const Mesh&) = delete;
+  Mesh& operator=(const Mesh&) = delete;
+
+  Mesh(Mesh&& rhs);
+  Mesh& operator=(Mesh&& rhs);
 
   void render();
 
 private:
-  std::vector<Vertex> vertices_;
   unsigned int vao_ = 0;
   unsigned int texture_ = 0;
+  int indices_count_ = 0;
 };
 
 #endif // MODEL_HPP
