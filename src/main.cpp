@@ -56,8 +56,8 @@ struct Blade {
 
 [[nodiscard]] std::unique_ptr<Mesh> generate_terrain_model()
 {
-  constexpr std::size_t terrian_x_max = 100;
-  constexpr std::size_t terrian_y_max = 100;
+  constexpr std::size_t terrian_x_max = 20;
+  constexpr std::size_t terrian_y_max = 20;
 
   std::vector<Vertex> verts;
   std::vector<std::uint32_t> indices;
@@ -163,14 +163,15 @@ public:
     {
       std::random_device rd;
       std::mt19937 gen(rd());
-      std::uniform_real_distribution<float> orientation_dis(0, 3.1415926f);
-      std::uniform_real_distribution<float> height_dis(0.3f, 0.6f);
+      std::uniform_real_distribution<float> orientation_dis(0,
+                                                            glm::pi<float>());
+      std::uniform_real_distribution<float> height_dis(0.6f, 1.2f);
       std::uniform_real_distribution<float> dis(-1, 1);
 
-      for (int i = 0; i < 400; ++i) {
-        for (int j = 0; j < 400; ++j) {
-          const auto x = static_cast<float>(i) / 20 - 1 + dis(gen) * 0.1f;
-          const auto y = static_cast<float>(j) / 20 - 1 + dis(gen) * 0.1f;
+      for (int i = -200; i < 200; ++i) {
+        for (int j = -200; j < 200; ++j) {
+          const auto x = static_cast<float>(i) / 10 - 1 + dis(gen) * 0.1f;
+          const auto y = static_cast<float>(j) / 10 - 1 + dis(gen) * 0.1f;
           const auto blade_height = height_dis(gen);
 
           blades_.emplace_back(
@@ -249,7 +250,8 @@ public:
     glGenBuffers(1, &cameraUniformBuffer_);
     glBindBuffer(GL_UNIFORM_BUFFER, cameraUniformBuffer_);
     glBufferData(GL_UNIFORM_BUFFER, 128, nullptr, GL_STATIC_DRAW);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, cameraUniformBuffer_);
+    // glBindBuffer(GL_UNIFORM_BUFFER, 0);
   }
 
   void run()
@@ -269,6 +271,12 @@ public:
 
         ImGui::Text("%.3f ms/frame (%.1f FPS)", delta_time_.count(),
                     1000.f / delta_time_.count());
+
+        static float camera_speed = camera_.speed();
+        ImGui::SliderFloat("Camera Speed", &camera_speed, 0.5, 30, "%.4f",
+                           2.0f);
+        camera_.set_speed(camera_speed);
+
         ImGui::End();
       }
 
@@ -297,11 +305,6 @@ public:
       glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
       // render quad
-      // calculate the model matrix for each object and pass it to shader before
-      // drawing
-      glm::mat4 model = glm::mat4(1.0f); // Identity
-      model = glm::scale(model, glm::vec3(2, 2, 2));
-      terrain_shader_.setMat4("model", model);
       terrain_model_->render();
 
       glBindVertexArray(grass_vao_);
@@ -315,7 +318,6 @@ public:
       }
 
       grass_shader_.use();
-      grass_shader_.setMat4("model", model);
       glDrawArraysIndirect(GL_PATCHES, reinterpret_cast<void*>(0));
 
       ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

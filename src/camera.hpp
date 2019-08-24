@@ -46,6 +46,16 @@ public:
     return zoom_;
   }
 
+  [[nodiscard]] float speed() const
+  {
+    return speed_;
+  }
+
+  void set_speed(float speed)
+  {
+    speed_ = speed;
+  }
+
 private:
   // Camera Attributes
   glm::vec3 position_;

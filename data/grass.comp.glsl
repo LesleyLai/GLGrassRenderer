@@ -41,6 +41,10 @@ bool inBounds(float value, float bounds) {
   return (value >= -bounds) && (value <= bounds);
 }
 
+float rand(float seed) {
+  return fract(sin(seed)*100000.0);
+}
+
 void main() {
   // Reset the number of blades to 0
   if (gl_GlobalInvocationID.x == 0) {
@@ -85,8 +89,35 @@ void main() {
 
   inputBlades[index].v1.xyz = v1;
   inputBlades[index].v2.xyz = v2;
+  
+  // Frustum culling
+  vec4 v0ClipSpace = camera.proj * camera.view * vec4(v0, 1);
+  vec4 v1ClipSpace = camera.proj * camera.view * vec4(v1, 1);
+  v0ClipSpace /= v0ClipSpace.w;
+  v1ClipSpace /= v1ClipSpace.w;
+  
+  bool v0OutFrustum =
+    v0ClipSpace.x < -1 || v0ClipSpace.x > 1
+    || v0ClipSpace.y < -1 || v0ClipSpace.y > 1;
+  
+  bool v1OutFrustum =
+    v1ClipSpace.x < -1 || v1ClipSpace.x > 1
+    || v1ClipSpace.y < -1 || v1ClipSpace.y > 1;
+  if (v0OutFrustum && v1OutFrustum) return;
+  
+  // Distance culling
+  const float far1 = 0.95;
+  if (v0ClipSpace.z > far1 && v1ClipSpace.z > far1 && rand(index) > 0.5) {
+    return;
+  }
+  const float far2 = 0.98;
+  if (v0ClipSpace.z > far2 && v1ClipSpace.z > far2 && rand(index) > 0.2) {
+    return;
+  }
+  const float far3 = 0.99;
+  if (v0ClipSpace.z > far3 && v1ClipSpace.z > far3 && rand(index) > 0.1) {
+    return;
+  }
 
-  // TODO: culling
-  outputBlades[index] = inputBlades[index];
-  atomicAdd(numBlades.vertexCount , 1);
+  outputBlades[atomicAdd(numBlades.vertexCount, 1)] = inputBlades[index];
 }
