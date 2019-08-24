@@ -32,10 +32,7 @@ include(${CMAKE_BINARY_DIR}/conan.cmake)
 
 conan_add_remote(NAME bincrafters INDEX 1
     URL https://api.bintray.com/conan/bincrafters/public-conan)
-conan_cmake_run(REQUIRES glm/0.9.8.5@bincrafters/stable
-                         glfw/3.2.1.20180327@bincrafters/stable
-                         fmt/5.3.0@bincrafters/stable
-                         stb/20180214@conan/stable
+conan_cmake_run(CONANFILE conanfile.txt
                 BASIC_SETUP CMAKE_TARGETS
                 BUILD missing)
 

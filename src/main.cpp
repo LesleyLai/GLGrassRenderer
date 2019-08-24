@@ -22,6 +22,14 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
+// Indirect drawing structure
+struct NumBlades {
+  std::uint32_t vertexCount = 5;
+  std::uint32_t instanceCount = 1;
+  std::uint32_t firstVertex = 0;
+  std::uint32_t firstInstance = 0;
+};
+
 struct Blade {
   // Position and direction
   glm::vec4 v0;
@@ -89,8 +97,8 @@ public:
       // clang-format on
       land_ = std::make_unique<Model>(verts, "GrassGreenTexture0001.jpg");
       land_shader_ = ShaderBuilder{}
-                         .load("land.vert", Shader::Type::Vertex)
-                         .load("land.frag", Shader::Type::Fragment)
+                         .load("land.vert.glsl", Shader::Type::Vertex)
+                         .load("land.frag.glsl", Shader::Type::Fragment)
                          .build();
       land_shader_.use();
       land_shader_.setInt("texture1", 0);
@@ -103,10 +111,10 @@ public:
       std::uniform_real_distribution<float> height_dis(0.3f, 0.6f);
       std::uniform_real_distribution<float> dis(-1, 1);
 
-      for (int i = 0; i < 20; ++i) {
-        for (int j = 0; j < 20; ++j) {
-          const auto x = static_cast<float>(i) / 10 - 1 + dis(gen) * 0.1f;
-          const auto y = static_cast<float>(j) / 10 - 1 + dis(gen) * 0.1f;
+      for (int i = 0; i < 40; ++i) {
+        for (int j = 0; j < 40; ++j) {
+          const auto x = static_cast<float>(i) / 20 - 1 + dis(gen) * 0.1f;
+          const auto y = static_cast<float>(j) / 20 - 1 + dis(gen) * 0.1f;
           const auto blade_height = height_dis(gen);
 
           blades_.emplace_back(
@@ -119,18 +127,31 @@ public:
 
       glPatchParameteri(GL_PATCH_VERTICES, 1);
 
-      unsigned int vbo;
       glGenVertexArrays(1, &grass_vao_);
       glBindVertexArray(grass_vao_);
 
-      glGenBuffers(1, &vbo);
+      unsigned int grass_input_buffer;
+      glGenBuffers(1, &grass_input_buffer);
 
-      glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo);
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, grass_input_buffer);
       glBufferData(GL_SHADER_STORAGE_BUFFER,
                    static_cast<GLsizei>(blades_.size() * sizeof(Blade)),
-                   blades_.data(), GL_STATIC_DRAW);
+                   blades_.data(), GL_DYNAMIC_COPY);
 
-      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+      unsigned int grass_output_buffer;
+      glGenBuffers(1, &grass_output_buffer);
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, grass_output_buffer);
+      glBufferData(GL_SHADER_STORAGE_BUFFER,
+                   static_cast<GLsizei>(blades_.size() * sizeof(Blade)),
+                   nullptr, GL_STREAM_DRAW);
+
+      NumBlades numBlades;
+      unsigned int grass_indirect_buffer;
+      glGenBuffers(1, &grass_indirect_buffer);
+      glBindBuffer(GL_DRAW_INDIRECT_BUFFER, grass_indirect_buffer);
+      glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(NumBlades), &numBlades,
+                   GL_DYNAMIC_DRAW);
+      glBindBuffer(GL_ARRAY_BUFFER, grass_output_buffer);
 
       // v0 attribute
       glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
@@ -153,25 +174,25 @@ public:
       glEnableVertexAttribArray(3);
 
       grass_compute_shader_ =
-          ShaderBuilder{}.load("grass.comp", Shader::Type::Compute).build();
+          ShaderBuilder{}
+              .load("grass.comp.glsl", Shader::Type::Compute)
+              .build();
       grass_compute_shader_.use();
-      glBindBuffer(GL_SHADER_STORAGE_BUFFER, vbo);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, vbo);
-
-      glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, grass_input_buffer);
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, grass_output_buffer);
+      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, grass_indirect_buffer);
 
       grass_shader_ = ShaderBuilder{}
-                          .load("grass.vert", Shader::Type::Vertex)
-                          .load("grass.tesc", Shader::Type::TessControl)
-                          .load("grass.tese", Shader::Type::TessEval)
-                          .load("grass.frag", Shader::Type::Fragment)
+                          .load("grass.vert.glsl", Shader::Type::Vertex)
+                          .load("grass.tesc.glsl", Shader::Type::TessControl)
+                          .load("grass.tese.glsl", Shader::Type::TessEval)
+                          .load("grass.frag.glsl", Shader::Type::Fragment)
                           .build();
     }
 
     glGenBuffers(1, &cameraUniformBuffer_);
     glBindBuffer(GL_UNIFORM_BUFFER, cameraUniformBuffer_);
-    glBufferData(GL_UNIFORM_BUFFER, 128, nullptr,
-                 GL_STATIC_DRAW); // allocate 150 bytes of memory
+    glBufferData(GL_UNIFORM_BUFFER, 128, nullptr, GL_STATIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
   }
 
@@ -204,7 +225,7 @@ public:
       glBufferSubData(GL_UNIFORM_BUFFER, 64, 64, &projection);
       glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-      // render boxes
+      // render quad
       // calculate the model matrix for each object and pass it to shader before
       // drawing
       glm::mat4 model = glm::mat4(1.0f); // Identity
@@ -217,12 +238,12 @@ public:
       { // launch compute shaders!
         grass_compute_shader_.use();
         grass_compute_shader_.setFloat("current_time", currentFrame);
-        glDispatchCompute(32, 1, 1);
+        glDispatchCompute(64, 1, 1);
       }
 
       grass_shader_.use();
       grass_shader_.setMat4("model", model);
-      glDrawArrays(GL_PATCHES, 0, static_cast<GLsizei>(blades_.size()));
+      glDrawArraysIndirect(GL_PATCHES, reinterpret_cast<void*>(0));
 
       glfwSwapBuffers(window_);
       glfwPollEvents();
