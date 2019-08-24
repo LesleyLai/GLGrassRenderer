@@ -7,6 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <chrono>
 #include <random>
 #include <string_view>
 #include <vector>
@@ -16,6 +17,10 @@
 #include "shader.hpp"
 
 #include <fmt/format.h>
+
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos);
@@ -61,7 +66,6 @@ struct Blade {
 
   for (std::size_t x = 0; x < terrian_x_max; ++x) {
     const float x_offset = -static_cast<float>(terrian_x_max) + 2 * x;
-    fmt::print("X offset: {}\n", x_offset);
     for (std::size_t y = 0; y < terrian_y_max; ++y) {
       const float y_offset = -static_cast<float>(terrian_y_max) + 2 * y;
       verts.push_back({{1.0f + x_offset, 0.0f, 1.0f + y_offset}, {1.0f, 0.0f}});
@@ -89,6 +93,8 @@ struct Blade {
 
 class App {
 public:
+  using DeltaDuration = std::chrono::duration<float, std::milli>;
+
   App(int width, int height, std::string_view title)
       : width_{width}, height_{height}
   {
@@ -112,7 +118,7 @@ public:
     glfwSetWindowUserPointer(window_, this);
 
     // tell GLFW to capture our mouse
-    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -121,6 +127,26 @@ public:
       glfwTerminate();
       std::exit(1);
     }
+
+    // Imgui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    (void)io;
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable
+    // Keyboard Controls io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; //
+    // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    // ImGui::StyleColorsClassic();
+
+    // Setup Platform/Renderer bindings
+    ImGui_ImplGlfw_InitForOpenGL(window_, true);
+    ImGui_ImplOpenGL3_Init("#version 450");
+
+    // Load Fonts
+    io.Fonts->AddFontFromFileTTF("fonts/Roboto-Medium.ttf", 30.0f);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -141,8 +167,8 @@ public:
       std::uniform_real_distribution<float> height_dis(0.3f, 0.6f);
       std::uniform_real_distribution<float> dis(-1, 1);
 
-      for (int i = 0; i < 40; ++i) {
-        for (int j = 0; j < 40; ++j) {
+      for (int i = 0; i < 400; ++i) {
+        for (int j = 0; j < 400; ++j) {
           const auto x = static_cast<float>(i) / 20 - 1 + dis(gen) * 0.1f;
           const auto y = static_cast<float>(j) / 20 - 1 + dis(gen) * 0.1f;
           const auto blade_height = height_dis(gen);
@@ -229,9 +255,24 @@ public:
   void run()
   {
     while (!glfwWindowShouldClose(window_)) {
-      float currentFrame = static_cast<float>(glfwGetTime());
-      deltaTime_ = currentFrame - lastFrame_;
-      lastFrame_ = currentFrame;
+      const auto current_time = std::chrono::high_resolution_clock::now();
+      delta_time_ = current_time - last_frame_;
+      last_frame_ = current_time;
+
+      // Start the Dear ImGui frame
+      ImGui_ImplOpenGL3_NewFrame();
+      ImGui_ImplGlfw_NewFrame();
+      ImGui::NewFrame();
+
+      {
+        ImGui::Begin("Control");
+
+        ImGui::Text("%.3f ms/frame (%.1f FPS)", delta_time_.count(),
+                    1000.f / delta_time_.count());
+        ImGui::End();
+      }
+
+      ImGui::Render();
 
       process_input(window_);
 
@@ -243,7 +284,7 @@ public:
       terrain_shader_.use();
 
       // camera/view transformation
-      glm::mat4 view = camera_.viewMatrix();
+      glm::mat4 view = camera_.view_matrix();
       glm::mat4 projection = glm::perspective(glm::radians(camera_.zoom()),
                                               static_cast<float>(width_) /
                                                   static_cast<float>(height_),
@@ -267,13 +308,17 @@ public:
 
       { // launch compute shaders!
         grass_compute_shader_.use();
-        grass_compute_shader_.setFloat("current_time", currentFrame);
-        glDispatchCompute(64, 1, 1);
+        grass_compute_shader_.setFloat(
+            "current_time", current_time.time_since_epoch().count() / 1e9);
+        glDispatchCompute(static_cast<GLuint>(blades_.size()), 1, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
       }
 
       grass_shader_.use();
       grass_shader_.setMat4("model", model);
       glDrawArraysIndirect(GL_PATCHES, reinterpret_cast<void*>(0));
+
+      ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
       glfwSwapBuffers(window_);
       glfwPollEvents();
@@ -282,6 +327,10 @@ public:
 
   ~App()
   {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     glfwDestroyWindow(window_);
     glfwTerminate();
   }
@@ -296,9 +345,9 @@ public:
     return camera_;
   }
 
-  [[nodiscard]] float deltaTime() const noexcept
+  [[nodiscard]] DeltaDuration delta_time() const noexcept
   {
-    return deltaTime_;
+    return delta_time_;
   }
 
   [[nodiscard]] int width() const noexcept
@@ -341,8 +390,8 @@ private:
   // camera
   Camera camera_{glm::vec3(0.0f, 1.0f, 6.0f)};
 
-  float deltaTime_ = 0.0f; // time between current frame and last frame
-  float lastFrame_ = 0.0f;
+  DeltaDuration delta_time_;
+  std::chrono::high_resolution_clock::time_point last_frame_;
 };
 
 int main() try {
@@ -358,23 +407,23 @@ void process_input(GLFWwindow* window)
 {
   auto* app_ptr = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
   auto& camera = app_ptr->camera();
-  const auto deltaTime = app_ptr->deltaTime();
+  const auto delta_time = app_ptr->delta_time();
 
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, true);
   }
 
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-    camera.move(Camera::Movement::forward, deltaTime);
+    camera.move(Camera::Movement::forward, delta_time);
   }
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-    camera.move(Camera::Movement::backward, deltaTime);
+    camera.move(Camera::Movement::backward, delta_time);
   }
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-    camera.move(Camera::Movement::left, deltaTime);
+    camera.move(Camera::Movement::left, delta_time);
   }
   if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-    camera.move(Camera::Movement::right, deltaTime);
+    camera.move(Camera::Movement::right, delta_time);
   }
 }
 

@@ -6,114 +6,42 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <vector>
+#include <chrono>
 
-// Default camera values
-constexpr float YAW = -90.0f;
-constexpr float PITCH = 0.0f;
-constexpr float SPEED = 2.5f;
-constexpr float SENSITIVITY = 0.1f;
-constexpr float ZOOM = 45.0f;
+#include <vector>
 
 class Camera {
 public:
+  // Default camera values
+  static constexpr float init_yaw = -90.0f;
+  static constexpr float init_pitch = 0.0f;
+  static constexpr float initial_speed = 2.5f;
+  static constexpr float init_sensitivity = 0.1f;
+  static constexpr float init_zoom = 45.0f;
+
   enum class Movement { forward, backward, left, right };
 
   // Constructor with vectors
   explicit Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f),
-                  glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW,
-                  float pitch = PITCH)
-      : front_(glm::vec3(0.0f, 0.0f, -1.0f)), speed_(SPEED),
-        MouseSensitivity(SENSITIVITY), zoom_(ZOOM)
-  {
-    position_ = position;
-    world_up_ = up;
-    yam_ = yaw;
-    pitch_ = pitch;
-    updateCameraVectors();
-  }
-  // Constructor with scalar values
-  Camera(float posX, float posY, float posZ, float upX, float upY, float upZ,
-         float yaw, float pitch)
-      : front_(glm::vec3(0.0f, 0.0f, -1.0f)), speed_(SPEED),
-        MouseSensitivity(SENSITIVITY), zoom_(ZOOM)
-  {
-    position_ = glm::vec3(posX, posY, posZ);
-    world_up_ = glm::vec3(upX, upY, upZ);
-    yam_ = yaw;
-    pitch_ = pitch;
-    updateCameraVectors();
-  }
+                  glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
+                  float yaw = init_yaw, float pitch = init_pitch);
 
-  // Returns the view matrix calculated using Euler Angles and the LookAt Matrix
-  glm::mat4 viewMatrix()
+  [[nodiscard]] glm::mat4 view_matrix() const
   {
     return glm::lookAt(position_, position_ + front_, up_);
   }
 
-  // Processes input received from any keyboard-like input system. Accepts input
-  // parameter in the form of camera defined ENUM (to abstract it from windowing
-  // systems)
-  void move(Movement direction, float deltaTime)
-  {
-    float dx = speed_ * deltaTime;
-    switch (direction) {
-    case Camera::Movement::forward:
-      position_ += front_ * dx;
-      break;
-    case Camera::Movement::backward:
-      position_ -= front_ * dx;
-      break;
-    case Camera::Movement::left:
-      position_ -= right_ * dx;
-      break;
-    case Camera::Movement::right:
-      position_ += right_ * dx;
-      break;
-    }
-  }
+  void move(Movement direction,
+            std::chrono::duration<float, std::milli> delta_time);
 
   // Processes input received from a mouse input system. Expects the offset
   // value in both the x and y direction.
   void mouse_movement(float xoffset, float yoffset,
-                      GLboolean constrainPitch = true)
-  {
-    xoffset *= MouseSensitivity;
-    yoffset *= MouseSensitivity;
+                      GLboolean constrainPitch = true);
 
-    yam_ += xoffset;
-    pitch_ += yoffset;
+  void mouse_scroll(float yoffset);
 
-    // Make sure that when pitch is out of bounds, screen doesn't get flipped
-    if (constrainPitch) {
-      if (pitch_ > 89.0f) {
-        pitch_ = 89.0f;
-      }
-      if (pitch_ < -89.0f) {
-        pitch_ = -89.0f;
-      }
-    }
-
-    // Update Front, Right and Up Vectors using the updated Euler angles
-    updateCameraVectors();
-  }
-
-  // Processes input received from a mouse scroll-wheel event. Only requires
-  // input on the vertical wheel-axis
-  void mouse_scroll(float yoffset)
-  {
-    if (zoom_ >= 1.0f && zoom_ <= 45.0f) {
-      zoom_ -= yoffset;
-    }
-    if (zoom_ <= 1.0f) {
-      zoom_ = 1.0f;
-    }
-    if (zoom_ >= 45.0f) {
-      zoom_ = 45.0f;
-    }
-  }
-
-  float zoom()
+  [[nodiscard]] float zoom() const
   {
     return zoom_;
   }
@@ -130,24 +58,9 @@ private:
   float pitch_;
   // Camera options
   float speed_;
-  float MouseSensitivity;
+  float mouse_sensitivity_;
   float zoom_;
 
-  // Calculates the front vector from the Camera's (updated) Euler Angles
-  void updateCameraVectors()
-  {
-    // Calculate the new Front vector
-    glm::vec3 front;
-    front.x = std::cos(glm::radians(yam_)) * std::cos(glm::radians(pitch_));
-    front.y = std::sin(glm::radians(pitch_));
-    front.z = std::sin(glm::radians(yam_)) * std::cos(glm::radians(pitch_));
-    front_ = glm::normalize(front);
-    // Also re-calculate the Right and Up vector
-    right_ = glm::normalize(glm::cross(
-        front_, world_up_)); // Normalize the vectors, because their length gets
-                             // closer to 0 the more you look up or down which
-                             // results in slower movement.
-    up_ = glm::normalize(glm::cross(right_, front_));
-  }
+  void update_camera_vectors();
 };
 #endif // CAMERA_HPP

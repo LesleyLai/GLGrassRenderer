@@ -41,5 +41,5 @@ add_custom_target(assets
        ${CMAKE_SOURCE_DIR}/data ${CMAKE_CURRENT_BINARY_DIR}/bin
 )
 
-add_subdirectory(src)
 add_subdirectory(third-party)
+add_subdirectory(src)
