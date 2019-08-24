@@ -11,6 +11,7 @@ layout(binding = 0) uniform CameraBufferObject {
 } camera;
 
 uniform float current_time;
+uniform float delta_time;
 
 struct Blade {
   vec4 v0;
@@ -18,8 +19,6 @@ struct Blade {
   vec4 v2;
   vec4 up;
 };
-
-const float delta_t = 0.010; // 10 ms
 
 layout(binding = 1) buffer inputBuffer {
   Blade inputBlades[];
@@ -61,35 +60,8 @@ void main() {
   float height = inputBlades[index].v1.w;
   float width = inputBlades[index].v2.w;
   float stiffness = inputBlades[index].up.w;
-
-  // Apply forces
-  {
-    // Gravities
-    vec3 gE = vec3(0,-0.98,0);
-    //vec3 bladeFace = normalize(cross(vec3(cos(orientation), 0, sin(orientation)) , up));
-    vec3 widthDir = vec3(cos(orientation), 0, sin(orientation));
-    vec3 bladeFace = normalize(cross(up, widthDir));
-    vec3 gF = 0.25*length(gE)*bladeFace;
-    vec3 g = gE + gF;
-			
-    //Recovery
-    vec3 r = (v0 + up * height - v2) * stiffness;
-
-    //Wind
-    vec3 windForce = 0.2 * vec3(sin(current_time), 0, 0);
-    float fd = 1 - abs(dot(normalize(windForce) , normalize(v2 - v0)));
-    float fr = dot((v2 - v0), up) / height;
-    vec3 w = windForce * fd * fr;
-			
-    v2 += (0.1 * g + r + w) * delta_t;
-
-    float lproj = length(v2 - v0 - up * dot((v2-v0), up));
-    v1 = v0 + height*up*max(1-lproj/height , 0.05*max(lproj/height , 1));
-  }
-
-  inputBlades[index].v1.xyz = v1;
-  inputBlades[index].v2.xyz = v2;
   
+    
   // Frustum culling
   vec4 v0ClipSpace = camera.proj * camera.view * vec4(v0, 1);
   vec4 v1ClipSpace = camera.proj * camera.view * vec4(v1, 1);
@@ -118,6 +90,34 @@ void main() {
   if (v0ClipSpace.z > far3 && v1ClipSpace.z > far3 && rand(index) > 0.1) {
     return;
   }
+
+  // Apply forces {
+  //  Gravities
+  vec3 gE = vec3(0,-0.98,0);
+  //vec3 bladeFace = normalize(cross(vec3(cos(orientation), 0, sin(orientation)) , up));
+  vec3 widthDir = vec3(cos(orientation), 0, sin(orientation));
+  vec3 bladeFace = normalize(cross(up, widthDir));
+  vec3 gF = 0.25*length(gE)*bladeFace;
+  vec3 g = gE + gF;
+
+  //  Recovery
+  vec3 r = (v0 + up * height - v2) * stiffness;
+
+  //  Wind
+  vec3 windForce = 0.2 * vec3(sin(current_time), 0, 0);
+  float fd = 1 - abs(dot(normalize(windForce) , normalize(v2 - v0)));
+  float fr = dot((v2 - v0), up) / height;
+  vec3 w = windForce * fd * fr;
+			
+  v2 += (0.1 * g + r + w) * delta_time;
+
+  float lproj = length(v2 - v0 - up * dot((v2-v0), up));
+  v1 = v0 + height*up*max(1-lproj/height , 0.05*max(lproj/height , 1));
+
+  inputBlades[index].v1.xyz = v1;
+  inputBlades[index].v2.xyz = v2;
+  // }
+
 
   outputBlades[atomicAdd(numBlades.vertexCount, 1)] = inputBlades[index];
 }

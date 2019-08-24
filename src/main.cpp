@@ -256,6 +256,7 @@ public:
 
   void run()
   {
+    last_frame_ = std::chrono::high_resolution_clock::now();
     while (!glfwWindowShouldClose(window_)) {
       const auto current_time = std::chrono::high_resolution_clock::now();
       delta_time_ = current_time - last_frame_;
@@ -313,6 +314,9 @@ public:
         grass_compute_shader_.use();
         grass_compute_shader_.setFloat(
             "current_time", current_time.time_since_epoch().count() / 1e9);
+
+        grass_compute_shader_.setFloat("delta_time", delta_time_.count() / 1e3);
+
         glDispatchCompute(static_cast<GLuint>(blades_.size()), 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
       }
