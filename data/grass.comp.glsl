@@ -20,11 +20,11 @@ struct Blade {
   vec4 up;
 };
 
-layout(binding = 1) buffer inputBuffer {
+layout(binding = 1, std140) buffer inputBuffer {
   Blade inputBlades[];
 };
 
-layout(binding = 2) buffer outputBuffer {
+layout(binding = 2, std140) buffer outputBuffer {
   Blade outputBlades[];
 };
 

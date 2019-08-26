@@ -312,8 +312,7 @@ public:
 
       { // launch compute shaders!
         grass_compute_shader_.use();
-        grass_compute_shader_.setFloat(
-            "current_time", current_time.time_since_epoch().count() / 1e9);
+        grass_compute_shader_.setFloat("current_time", glfwGetTime());
 
         grass_compute_shader_.setFloat("delta_time", delta_time_.count() / 1e3);
 
@@ -400,7 +399,8 @@ private:
   std::chrono::high_resolution_clock::time_point last_frame_;
 };
 
-int main() try {
+int main()
+try {
   App app(1920, 1080, "Grass Renderer");
   app.run();
 } catch (const std::exception& e) {
