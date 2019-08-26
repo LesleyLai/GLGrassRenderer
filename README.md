@@ -1,5 +1,5 @@
 # OpenGL Grass Renderer
-This project is a C++/OpenGL implementation of [Responsive Real-Time Grass Rendering for General 3D Scenes](https://www.cg.tuwien.ac.at/research/publications/2017/JAHRMANN-2017-RRTG/JAHRMANN-2017-RRTG-draft.pdf). The project uses  Bezier curves to represent individual grass blades. It uses compute shader to perform force simulation in euler's method and perform various culling methods. Afterward the buffer of curves is passed to a tessellation shader to dynamically generate triangle geometry for grass blades.
+This project is a C++/OpenGL implementation of [Responsive Real-Time Grass Rendering for General 3D Scenes](https://www.cg.tuwien.ac.at/research/publications/2017/JAHRMANN-2017-RRTG/JAHRMANN-2017-RRTG-draft.pdf). The project uses Bezier curves to represent individual grass blades. It uses compute shader to perform force simulation in Euler's method and perform various culling methods. Afterward the buffer of curves is passed to a tessellation shader to dynamically generate triangle geometry for grass blades.
 
 ![demo image](image.gif)
 
@@ -30,11 +30,12 @@ $ make
 - An immediate GUI interface for user control
 
 ## Todo
+- Better wind force
 - Tessellation LOD base on distance
 - Skybox
 - Orientation culling
-- Occlusion culling
 - Terrain generation
-- Grass generation in compute shader
 - Infinite lawn with LOD
 - Performance analysis
+- Occlusion culling
+
