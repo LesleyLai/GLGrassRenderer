@@ -26,12 +26,12 @@ $ make
 ## Features
 - Wind, gravity, and restoration forces simulation in compute shader with Euler's method
 - frustum and distance cullings in compute shader with indirect drawing
+- Tessellation LOD base on distance
 - a pair of tessellation control shader and tessellation evaluation shader to generate triangle geometry
 - An immediate GUI interface for user control
 
 ## Todo
 - Better wind force
-- Tessellation LOD base on distance
 - Skybox
 - acceleration structure
 - Orientation culling

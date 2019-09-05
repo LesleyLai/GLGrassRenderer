@@ -399,8 +399,7 @@ private:
   std::chrono::high_resolution_clock::time_point last_frame_;
 };
 
-int main()
-try {
+int main() try {
   App app(1920, 1080, "Grass Renderer");
   app.run();
 } catch (const std::exception& e) {

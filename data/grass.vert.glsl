@@ -24,8 +24,8 @@ void main() {
                              vec3(sin(angle),
                                   0,
                                   cos(angle))));
-  
+
   vs_out.dir = vec4(dir, 0.0);
-  
+
   gl_Position = v0;
 }
