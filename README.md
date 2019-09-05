@@ -33,6 +33,7 @@ $ make
 - Better wind force
 - Tessellation LOD base on distance
 - Skybox
+- acceleration structure
 - Orientation culling
 - Terrain generation
 - Infinite lawn with LOD
