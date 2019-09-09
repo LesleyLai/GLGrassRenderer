@@ -31,7 +31,6 @@ $ make
 - An immediate GUI interface for user control
 
 ## Todo
-- Better wind force
 - Skybox
 - acceleration structure
 - Orientation culling
@@ -39,4 +38,4 @@ $ make
 - Infinite lawn with LOD
 - Performance analysis
 - Occlusion culling
-
+- Better Grass Material

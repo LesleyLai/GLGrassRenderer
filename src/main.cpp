@@ -132,7 +132,6 @@ public:
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    (void)io;
     // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable
     // Keyboard Controls io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; //
     // Enable Gamepad Controls
@@ -149,7 +148,6 @@ public:
     io.Fonts->AddFontFromFileTTF("fonts/Roboto-Medium.ttf", 30.0f);
 
     glEnable(GL_DEPTH_TEST);
-
     {
       terrain_model_ = generate_terrain_model();
       terrain_shader_ = ShaderBuilder{}

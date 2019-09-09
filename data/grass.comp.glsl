@@ -94,7 +94,6 @@ void main() {
   // Apply forces {
   //  Gravities
   vec3 gE = vec3(0,-0.98,0);
-  //vec3 bladeFace = normalize(cross(vec3(cos(orientation), 0, sin(orientation)) , up));
   vec3 widthDir = vec3(cos(orientation), 0, sin(orientation));
   vec3 bladeFace = normalize(cross(up, widthDir));
   vec3 gF = 0.25*length(gE)*bladeFace;
@@ -104,7 +103,8 @@ void main() {
   vec3 r = (v0 + up * height - v2) * stiffness;
 
   //  Wind
-  vec3 windForce = 0.2 * vec3(sin(current_time), 0, 0);
+  vec3 windForce = 0.2 * vec3(sin(current_time + v0.x * 0.1), 0,
+                              sin(current_time + v0.z * 0.2) * 0.1);
   float fd = 1 - abs(dot(normalize(windForce) , normalize(v2 - v0)));
   float fr = dot((v2 - v0), up) / height;
   vec3 w = windForce * fd * fr;
@@ -117,7 +117,6 @@ void main() {
   inputBlades[index].v1.xyz = v1;
   inputBlades[index].v2.xyz = v2;
   // }
-
 
   outputBlades[atomicAdd(numBlades.vertexCount, 1)] = inputBlades[index];
 }
