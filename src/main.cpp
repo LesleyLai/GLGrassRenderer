@@ -54,6 +54,53 @@ struct Blade {
   }
 };
 
+// clang-format off
+constexpr float skybox_vertices[] = {
+    // positions
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f
+};
+// clang-format on
+
 [[nodiscard]] std::unique_ptr<Mesh> generate_terrain_model()
 {
   constexpr std::size_t terrian_x_max = 20;
@@ -89,6 +136,35 @@ struct Blade {
 
   return std::make_unique<Mesh>(std::move(verts), std::move(indices),
                                 "GrassGreenTexture0001.jpg");
+}
+
+unsigned int load_cubemap(std::vector<std::string> faces)
+{
+  unsigned int texture_id;
+  glGenTextures(1, &texture_id);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, texture_id);
+
+  int width, height, nrChannels;
+  for (unsigned int i = 0; i < faces.size(); i++) {
+    unsigned char* data =
+        stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+    if (data) {
+      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height,
+                   0, GL_RGB, GL_UNSIGNED_BYTE, data);
+      stbi_image_free(data);
+    } else {
+      std::cout << "Cubemap texture failed to load at path: " << faces[i]
+                << std::endl;
+      stbi_image_free(data);
+    }
+  }
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+  return texture_id;
 }
 
 class App {
@@ -146,6 +222,41 @@ public:
 
     // Load Fonts
     io.Fonts->AddFontFromFileTTF("fonts/Roboto-Medium.ttf", 30.0f);
+
+    {
+      skybox_texture_ = load_cubemap(
+          {"textures/ely_hills/hills_rt.tga", "textures/ely_hills/hills_lf.tga",
+           "textures/ely_hills/hills_up.tga", "textures/ely_hills/hills_dn.tga",
+           "textures/ely_hills/hills_ft.tga",
+           "textures/ely_hills/hills_bk.tga"});
+
+      glGenVertexArrays(1, &skybox_vao_);
+      glBindVertexArray(skybox_vao_);
+
+      glDisable(GL_CULL_FACE);
+
+      unsigned int vbo;
+      glGenBuffers(1, &vbo);
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+      glBufferData(
+          GL_ARRAY_BUFFER,
+          static_cast<GLsizei>(sizeof(skybox_vertices) * sizeof(float)),
+          &skybox_vertices, GL_STATIC_DRAW);
+
+      glEnableVertexAttribArray(0);
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
+                            (void*)0);
+
+      skybox_shader_ = ShaderBuilder{}
+                           .load("skybox.vert.glsl", Shader::Type::Vertex)
+                           .load("skybox.frag.glsl", Shader::Type::Fragment)
+                           .build();
+
+      skybox_shader_.use();
+      skybox_shader_.setInt("skybox", 0);
+
+      // glBindVertexArray(0);
+    }
 
     glEnable(GL_DEPTH_TEST);
     {
@@ -287,9 +398,6 @@ public:
       glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-      // activate shader
-      terrain_shader_.use();
-
       // camera/view transformation
       glm::mat4 view = camera_.view_matrix();
       glm::mat4 projection = glm::perspective(glm::radians(camera_.zoom()),
@@ -301,23 +409,32 @@ public:
 
       glBufferSubData(GL_UNIFORM_BUFFER, 0, 64, &view);
       glBufferSubData(GL_UNIFORM_BUFFER, 64, 64, &projection);
-      glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-      // render quad
-      terrain_model_->render();
-
-      glBindVertexArray(grass_vao_);
 
       { // launch compute shaders!
         grass_compute_shader_.use();
         grass_compute_shader_.setFloat("current_time", glfwGetTime());
-
         grass_compute_shader_.setFloat("delta_time", delta_time_.count() / 1e3);
 
         glDispatchCompute(static_cast<GLuint>(blades_.size()), 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
       }
 
+      // Skybox
+      glDepthMask(GL_FALSE);
+      skybox_shader_.use();
+      glBindVertexArray(skybox_vao_);
+      glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_texture_);
+
+      glDrawArrays(GL_TRIANGLES, 0, 36);
+      glDepthMask(GL_TRUE);
+
+      // Terrain
+      terrain_shader_.use();
+      terrain_model_->render();
+
+      glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+      // Grass
+      glBindVertexArray(grass_vao_);
       grass_shader_.use();
       glDrawArraysIndirect(GL_PATCHES, reinterpret_cast<void*>(0));
 
@@ -388,6 +505,9 @@ private:
   ShaderProgram grass_compute_shader_{};
   std::vector<Blade> blades_;
 
+  ShaderProgram skybox_shader_{};
+  unsigned int skybox_vao_ = 0;
+
   unsigned int cameraUniformBuffer_ = 0;
 
   // camera
@@ -395,6 +515,8 @@ private:
 
   DeltaDuration delta_time_;
   std::chrono::high_resolution_clock::time_point last_frame_;
+
+  unsigned int skybox_texture_;
 };
 
 int main() try {

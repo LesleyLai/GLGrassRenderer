@@ -30,8 +30,11 @@ $ make
 - a pair of tessellation control shader and tessellation evaluation shader to generate triangle geometry
 - An immediate GUI interface for user control
 
+## Q & A
+- Q: I don't see any grass.
+  A: Make sure not to use the Intel integrated GPU to run the program
+
 ## Todo
-- Skybox
 - acceleration structure
 - Orientation culling
 - Terrain generation

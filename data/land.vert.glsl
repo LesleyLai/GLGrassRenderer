@@ -4,7 +4,7 @@ layout (location = 1) in vec2 aTexCoord;
 
 out vec2 TexCoord;
 
-layout(set = 0, binding = 0) uniform CameraBufferObject {
+layout(binding = 0) uniform CameraBufferObject {
     mat4 view;
     mat4 proj;
 } camera;
