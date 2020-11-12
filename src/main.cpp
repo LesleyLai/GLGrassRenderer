@@ -55,7 +55,7 @@ struct Blade {
 };
 
 // clang-format off
-constexpr float skybox_vertices[] = {
+constexpr std::array skybox_vertices = {
     // positions
     -1.0f,  1.0f, -1.0f,
     -1.0f, -1.0f, -1.0f,
@@ -112,9 +112,11 @@ constexpr float skybox_vertices[] = {
   indices.reserve(terrian_x_max * terrian_y_max * 6);
 
   for (std::size_t x = 0; x < terrian_x_max; ++x) {
-    const float x_offset = -static_cast<float>(terrian_x_max) + 2 * x;
+    const float x_offset =
+        -static_cast<float>(terrian_x_max) + 2 * static_cast<float>(x);
     for (std::size_t y = 0; y < terrian_y_max; ++y) {
-      const float y_offset = -static_cast<float>(terrian_y_max) + 2 * y;
+      const float y_offset =
+          -static_cast<float>(terrian_y_max) + 2 * static_cast<float>(y);
       verts.push_back({{1.0f + x_offset, 0.0f, 1.0f + y_offset}, {1.0f, 0.0f}});
       verts.push_back(
           {{1.0f + x_offset, 0.0f, -1.0f + y_offset}, {1.0f, 1.0f}});
@@ -172,7 +174,7 @@ public:
   using DeltaDuration = std::chrono::duration<float, std::milli>;
 
   App(int width, int height, std::string_view title)
-      : width_{width}, height_{height}
+      : width_{width}, height_{height}, delta_time_{}
   {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -235,17 +237,16 @@ public:
 
       glDisable(GL_CULL_FACE);
 
-      unsigned int vbo;
+      unsigned int vbo = 0;
       glGenBuffers(1, &vbo);
       glBindBuffer(GL_ARRAY_BUFFER, vbo);
-      glBufferData(
-          GL_ARRAY_BUFFER,
-          static_cast<GLsizei>(sizeof(skybox_vertices) * sizeof(float)),
-          &skybox_vertices, GL_STATIC_DRAW);
+      glBufferData(GL_ARRAY_BUFFER,
+                   static_cast<GLsizei>(sizeof(skybox_vertices)),
+                   skybox_vertices.data(), GL_STATIC_DRAW);
 
       glEnableVertexAttribArray(0);
       glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                            (void*)0);
+                            reinterpret_cast<void*>(0));
 
       skybox_shader_ = ShaderBuilder{}
                            .load("skybox.vert.glsl", Shader::Type::Vertex)
@@ -286,8 +287,8 @@ public:
           blades_.emplace_back(
               glm::vec4(x, 0, y, orientation_dis(gen)),
               glm::vec4(x, blade_height, y, blade_height),
-              glm::vec4(x, blade_height, y, 0.1),
-              glm::vec4(0, blade_height, 0, 0.7 + dis(gen) * 0.3));
+              glm::vec4(x, blade_height, y, 0.1f),
+              glm::vec4(0, blade_height, 0, 0.7f + dis(gen) * 0.3f));
         }
       }
 
@@ -296,7 +297,7 @@ public:
       glGenVertexArrays(1, &grass_vao_);
       glBindVertexArray(grass_vao_);
 
-      unsigned int grass_input_buffer;
+      unsigned int grass_input_buffer = 0;
       glGenBuffers(1, &grass_input_buffer);
 
       glBindBuffer(GL_SHADER_STORAGE_BUFFER, grass_input_buffer);
@@ -304,7 +305,7 @@ public:
                    static_cast<GLsizei>(blades_.size() * sizeof(Blade)),
                    blades_.data(), GL_DYNAMIC_COPY);
 
-      unsigned int grass_output_buffer;
+      unsigned int grass_output_buffer = 0;
       glGenBuffers(1, &grass_output_buffer);
       glBindBuffer(GL_SHADER_STORAGE_BUFFER, grass_output_buffer);
       glBufferData(GL_SHADER_STORAGE_BUFFER,
@@ -312,7 +313,7 @@ public:
                    nullptr, GL_STREAM_DRAW);
 
       NumBlades numBlades;
-      unsigned int grass_indirect_buffer;
+      unsigned int grass_indirect_buffer = 0;
       glGenBuffers(1, &grass_indirect_buffer);
       glBindBuffer(GL_DRAW_INDIRECT_BUFFER, grass_indirect_buffer);
       glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(NumBlades), &numBlades,
@@ -387,6 +388,14 @@ public:
                            2.0f);
         camera_.set_speed(camera_speed);
 
+        if (ImGui::CollapsingHeader("Wind")) {
+          ImGui::SliderFloat("Magnitude", &wind_magnitude_, 0.5f, 3, "%.4f");
+          ImGui::SliderFloat("Wave Length", &wind_wave_length_, 0.5f, 2,
+                             "%.4f");
+          ImGui::SliderFloat("Wave Period", &wind_wave_period_, 0.5f, 2,
+                             "%.4f");
+        }
+
         ImGui::End();
       }
 
@@ -412,8 +421,13 @@ public:
 
       { // launch compute shaders!
         grass_compute_shader_.use();
-        grass_compute_shader_.setFloat("current_time", glfwGetTime());
-        grass_compute_shader_.setFloat("delta_time", delta_time_.count() / 1e3);
+        grass_compute_shader_.setFloat("current_time",
+                                       static_cast<float>(glfwGetTime()));
+        grass_compute_shader_.setFloat("delta_time",
+                                       delta_time_.count() / 1e3f);
+        grass_compute_shader_.setFloat("wind_magnitude", wind_magnitude_);
+        grass_compute_shader_.setFloat("wind_wave_length", wind_wave_length_);
+        grass_compute_shader_.setFloat("wind_wave_period", wind_wave_period_);
 
         glDispatchCompute(static_cast<GLuint>(blades_.size()), 1, 1);
       }
@@ -513,13 +527,19 @@ private:
   // camera
   Camera camera_{glm::vec3(0.0f, 1.0f, 6.0f)};
 
+  // Wind parameters
+  float wind_magnitude_ = 1.0;
+  float wind_wave_length_ = 1.0;
+  float wind_wave_period_ = 1.0;
+
   DeltaDuration delta_time_;
   std::chrono::high_resolution_clock::time_point last_frame_;
 
   unsigned int skybox_texture_;
 };
 
-int main() try {
+int main()
+try {
   App app(1920, 1080, "Grass Renderer");
   app.run();
 } catch (const std::exception& e) {
@@ -566,12 +586,12 @@ void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos)
 {
   auto* app_ptr = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
   auto& camera = app_ptr->camera();
-  const auto width = app_ptr->width();
-  const auto height = app_ptr->height();
+  const auto f_width = static_cast<float>(app_ptr->width());
+  const auto f_height = static_cast<float>(app_ptr->height());
 
   static bool firstMouse = true;
-  static float lastX = width / 2.0f;
-  static float lastY = height / 2.0f;
+  static float lastX = f_width / 2.0f;
+  static float lastY = f_height / 2.0f;
 
   if (firstMouse) {
     lastX = static_cast<float>(xpos);
