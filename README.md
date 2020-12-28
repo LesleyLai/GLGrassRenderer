@@ -15,7 +15,7 @@ This project uses [CMake](https://cmake.org/) build system and [Conan](https://c
 $ pip install conan # Or pip3 on some linux distributions, use sudo if nessesory
 ```
 
-Adter installing all the tools, build the project with the following CMake instructions.
+After installing all the tools, build the project with the following CMake instructions.
 ``` shell
 $ mkdir build
 $ cd build
