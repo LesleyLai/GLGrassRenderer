@@ -33,12 +33,3 @@ $ make
 ## Q & A
 - Q: I don't see any grass.
   A: Make sure not to use the Intel integrated GPU to run the program
-
-## Todo
-- acceleration structure
-- Orientation culling
-- Terrain generation
-- Infinite lawn with LOD
-- Performance analysis
-- Occlusion culling
-- Better Grass Material
