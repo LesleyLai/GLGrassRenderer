@@ -91,6 +91,17 @@ constexpr float skybox_vertices[] = {
 };
 // clang-format on
 
+void load_gl()
+{
+  // glad: load all OpenGL function pointers
+  // ---------------------------------------
+  if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
+    fmt::print(stderr, "Failed to initialize GLAD\n");
+    glfwTerminate();
+    std::exit(1);
+  }
+}
+
 [[nodiscard]] std::unique_ptr<Mesh> generate_terrain_model()
 {
   constexpr std::size_t terrian_x_max = 20;
@@ -159,12 +170,81 @@ unsigned int load_cubemap(std::vector<std::string> faces)
   return texture_id;
 }
 
+std::vector<Blade> generate_blades()
+{
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<float> orientation_dis(0, glm::pi<float>());
+  std::uniform_real_distribution<float> height_dis(0.6f, 1.2f);
+  std::uniform_real_distribution<float> dis(-1, 1);
+
+  std::vector<Blade> blades;
+  for (int i = -200; i < 200; ++i) {
+    for (int j = -200; j < 200; ++j) {
+      const auto x = static_cast<float>(i) / 10 - 1 + dis(gen) * 0.1f;
+      const auto y = static_cast<float>(j) / 10 - 1 + dis(gen) * 0.1f;
+      const auto blade_height = height_dis(gen);
+
+      blades.emplace_back(
+          glm::vec4(x, 0, y, orientation_dis(gen)),
+          glm::vec4(x, blade_height, y, blade_height),
+          glm::vec4(x, blade_height, y, 0.1f),
+          glm::vec4(0, blade_height, 0, 0.7f + dis(gen) * 0.3f));
+    }
+  }
+  return blades;
+}
+
+void init_imgui(GLFWwindow* window)
+{
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO();
+  // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable
+  // Keyboard Controls io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; //
+  // Enable Gamepad Controls
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  // ImGui::StyleColorsClassic();
+
+  // Setup Platform/Renderer bindings
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplOpenGL3_Init("#version 450");
+
+  // Load Fonts
+  io.Fonts->AddFontFromFileTTF("fonts/Roboto-Medium.ttf", 30.0f);
+}
+
+void destroy_imgui()
+{
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+}
+
 class App {
 public:
   using DeltaDuration = std::chrono::duration<float, std::milli>;
 
   App(int width, int height, std::string_view title)
       : width_{width}, height_{height}, delta_time_{}
+  {
+    setup_window(title);
+
+    load_gl();
+
+    init_imgui(window_);
+
+    glEnable(GL_DEPTH_TEST);
+
+    init_skybox();
+    init_terrain();
+    init_grasses();
+    init_camera_uniform_buffer();
+  }
+
+  void setup_window(const std::string_view& title)
   {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -175,7 +255,7 @@ public:
     if (window_ == nullptr) {
       fmt::print(stderr, "Failed to create GLFW window\n");
       glfwTerminate();
-      std::exit(1);
+      exit(1);
     }
     glfwMakeContextCurrent(window_);
     glfwSetFramebufferSizeCallback(window_, framebuffer_size_callback);
@@ -187,274 +267,227 @@ public:
 
     // tell GLFW to capture our mouse
     // glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  }
 
-    // glad: load all OpenGL function pointers
-    // ---------------------------------------
-    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
-      fmt::print(stderr, "Failed to initialize GLAD\n");
-      glfwTerminate();
-      std::exit(1);
-    }
+  void init_skybox()
+  {
+    skybox_texture_ = load_cubemap(
+        {"textures/ely_hills/hills_rt.tga", "textures/ely_hills/hills_lf.tga",
+         "textures/ely_hills/hills_up.tga", "textures/ely_hills/hills_dn.tga",
+         "textures/ely_hills/hills_ft.tga", "textures/ely_hills/hills_bk.tga"});
 
-    // Imgui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable
-    // Keyboard Controls io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; //
-    // Enable Gamepad Controls
+    glGenVertexArrays(1, &skybox_vao_);
+    glBindVertexArray(skybox_vao_);
 
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    // ImGui::StyleColorsClassic();
+    glDisable(GL_CULL_FACE);
 
-    // Setup Platform/Renderer bindings
-    ImGui_ImplGlfw_InitForOpenGL(window_, true);
-    ImGui_ImplOpenGL3_Init("#version 450");
+    unsigned int vbo = 0;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizei>(sizeof(skybox_vertices)),
+                 skybox_vertices, GL_STATIC_DRAW);
 
-    // Load Fonts
-    io.Fonts->AddFontFromFileTTF("fonts/Roboto-Medium.ttf", 30.0f);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
+                          reinterpret_cast<void*>(0));
 
-    {
-      skybox_texture_ = load_cubemap(
-          {"textures/ely_hills/hills_rt.tga", "textures/ely_hills/hills_lf.tga",
-           "textures/ely_hills/hills_up.tga", "textures/ely_hills/hills_dn.tga",
-           "textures/ely_hills/hills_ft.tga",
-           "textures/ely_hills/hills_bk.tga"});
+    skybox_shader_ = ShaderBuilder{}
+                         .load("skybox.vert.glsl", Shader::Type::Vertex)
+                         .load("skybox.frag.glsl", Shader::Type::Fragment)
+                         .build();
 
-      glGenVertexArrays(1, &skybox_vao_);
-      glBindVertexArray(skybox_vao_);
+    skybox_shader_.use();
+    skybox_shader_.setInt("skybox", 0);
+  }
 
-      glDisable(GL_CULL_FACE);
-
-      unsigned int vbo = 0;
-      glGenBuffers(1, &vbo);
-      glBindBuffer(GL_ARRAY_BUFFER, vbo);
-      glBufferData(GL_ARRAY_BUFFER,
-                   static_cast<GLsizei>(sizeof(skybox_vertices)),
-                   skybox_vertices, GL_STATIC_DRAW);
-
-      glEnableVertexAttribArray(0);
-      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                            reinterpret_cast<void*>(0));
-
-      skybox_shader_ = ShaderBuilder{}
-                           .load("skybox.vert.glsl", Shader::Type::Vertex)
-                           .load("skybox.frag.glsl", Shader::Type::Fragment)
-                           .build();
-
-      skybox_shader_.use();
-      skybox_shader_.setInt("skybox", 0);
-
-      // glBindVertexArray(0);
-    }
-
-    glEnable(GL_DEPTH_TEST);
-    {
-      terrain_model_ = generate_terrain_model();
-      terrain_shader_ = ShaderBuilder{}
-                            .load("land.vert.glsl", Shader::Type::Vertex)
-                            .load("land.frag.glsl", Shader::Type::Fragment)
-                            .build();
-      terrain_shader_.use();
-      terrain_shader_.setInt("texture1", 0);
-    }
-
-    {
-      std::random_device rd;
-      std::mt19937 gen(rd());
-      std::uniform_real_distribution<float> orientation_dis(0,
-                                                            glm::pi<float>());
-      std::uniform_real_distribution<float> height_dis(0.6f, 1.2f);
-      std::uniform_real_distribution<float> dis(-1, 1);
-
-      for (int i = -200; i < 200; ++i) {
-        for (int j = -200; j < 200; ++j) {
-          const auto x = static_cast<float>(i) / 10 - 1 + dis(gen) * 0.1f;
-          const auto y = static_cast<float>(j) / 10 - 1 + dis(gen) * 0.1f;
-          const auto blade_height = height_dis(gen);
-
-          blades_.emplace_back(
-              glm::vec4(x, 0, y, orientation_dis(gen)),
-              glm::vec4(x, blade_height, y, blade_height),
-              glm::vec4(x, blade_height, y, 0.1f),
-              glm::vec4(0, blade_height, 0, 0.7f + dis(gen) * 0.3f));
-        }
-      }
-
-      glPatchParameteri(GL_PATCH_VERTICES, 1);
-
-      glGenVertexArrays(1, &grass_vao_);
-      glBindVertexArray(grass_vao_);
-
-      unsigned int grass_input_buffer = 0;
-      glGenBuffers(1, &grass_input_buffer);
-
-      glBindBuffer(GL_SHADER_STORAGE_BUFFER, grass_input_buffer);
-      glBufferData(GL_SHADER_STORAGE_BUFFER,
-                   static_cast<GLsizei>(blades_.size() * sizeof(Blade)),
-                   blades_.data(), GL_DYNAMIC_COPY);
-
-      unsigned int grass_output_buffer = 0;
-      glGenBuffers(1, &grass_output_buffer);
-      glBindBuffer(GL_SHADER_STORAGE_BUFFER, grass_output_buffer);
-      glBufferData(GL_SHADER_STORAGE_BUFFER,
-                   static_cast<GLsizei>(blades_.size() * sizeof(Blade)),
-                   nullptr, GL_STREAM_DRAW);
-
-      NumBlades numBlades;
-      unsigned int grass_indirect_buffer = 0;
-      glGenBuffers(1, &grass_indirect_buffer);
-      glBindBuffer(GL_DRAW_INDIRECT_BUFFER, grass_indirect_buffer);
-      glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(NumBlades), &numBlades,
-                   GL_DYNAMIC_DRAW);
-      glBindBuffer(GL_ARRAY_BUFFER, grass_output_buffer);
-
-      // v0 attribute
-      glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
-                            reinterpret_cast<void*>(offsetof(Blade, v0)));
-      glEnableVertexAttribArray(0);
-
-      // v1 attribute
-      glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
-                            reinterpret_cast<void*>(offsetof(Blade, v1)));
-      glEnableVertexAttribArray(1);
-
-      // v2 attribute
-      glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
-                            reinterpret_cast<void*>(offsetof(Blade, v2)));
-      glEnableVertexAttribArray(2);
-
-      // dir attribute
-      glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
-                            reinterpret_cast<void*>(offsetof(Blade, up)));
-      glEnableVertexAttribArray(3);
-
-      grass_compute_shader_ =
-          ShaderBuilder{}
-              .load("grass.comp.glsl", Shader::Type::Compute)
-              .build();
-      grass_compute_shader_.use();
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, grass_input_buffer);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, grass_output_buffer);
-      glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, grass_indirect_buffer);
-
-      grass_shader_ = ShaderBuilder{}
-                          .load("grass.vert.glsl", Shader::Type::Vertex)
-                          .load("grass.tesc.glsl", Shader::Type::TessControl)
-                          .load("grass.tese.glsl", Shader::Type::TessEval)
-                          .load("grass.frag.glsl", Shader::Type::Fragment)
+  void init_terrain()
+  {
+    terrain_model_ = generate_terrain_model();
+    terrain_shader_ = ShaderBuilder{}
+                          .load("land.vert.glsl", Shader::Type::Vertex)
+                          .load("land.frag.glsl", Shader::Type::Fragment)
                           .build();
-    }
+    terrain_shader_.use();
+    terrain_shader_.setInt("texture1", 0);
+  }
 
-    glGenBuffers(1, &cameraUniformBuffer_);
-    glBindBuffer(GL_UNIFORM_BUFFER, cameraUniformBuffer_);
+  void init_grasses()
+  {
+    const std::vector<Blade> blades = generate_blades();
+    blades_count_ = static_cast<GLuint>(blades.size());
+
+    glPatchParameteri(GL_PATCH_VERTICES, 1);
+
+    glGenVertexArrays(1, &grass_vao_);
+    glBindVertexArray(grass_vao_);
+
+    unsigned int grass_input_buffer = 0;
+    glGenBuffers(1, &grass_input_buffer);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, grass_input_buffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+                 static_cast<GLsizei>(blades.size() * sizeof(Blade)),
+                 blades.data(), GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, grass_input_buffer);
+
+    unsigned int grass_output_buffer = 0;
+    glGenBuffers(1, &grass_output_buffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, grass_output_buffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+                 static_cast<GLsizei>(blades.size() * sizeof(Blade)), nullptr,
+                 GL_STREAM_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, grass_output_buffer);
+
+    NumBlades numBlades;
+    unsigned int grass_indirect_buffer = 0;
+    glGenBuffers(1, &grass_indirect_buffer);
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, grass_indirect_buffer);
+    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(NumBlades), &numBlades,
+                 GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, grass_output_buffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, grass_indirect_buffer);
+
+    // v0 attribute
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
+                          reinterpret_cast<void*>(offsetof(Blade, v0)));
+    glEnableVertexAttribArray(0);
+
+    // v1 attribute
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
+                          reinterpret_cast<void*>(offsetof(Blade, v1)));
+    glEnableVertexAttribArray(1);
+
+    // v2 attribute
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
+                          reinterpret_cast<void*>(offsetof(Blade, v2)));
+    glEnableVertexAttribArray(2);
+
+    // dir attribute
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(Blade),
+                          reinterpret_cast<void*>(offsetof(Blade, up)));
+    glEnableVertexAttribArray(3);
+
+    grass_compute_shader_ =
+        ShaderBuilder{}.load("grass.comp.glsl", Shader::Type::Compute).build();
+    grass_compute_shader_.use();
+
+    grass_shader_ = ShaderBuilder{}
+                        .load("grass.vert.glsl", Shader::Type::Vertex)
+                        .load("grass.tesc.glsl", Shader::Type::TessControl)
+                        .load("grass.tese.glsl", Shader::Type::TessEval)
+                        .load("grass.frag.glsl", Shader::Type::Fragment)
+                        .build();
+  }
+
+  void init_camera_uniform_buffer()
+  {
+    glGenBuffers(1, &camera_uniform_buffer_);
+    glBindBuffer(GL_UNIFORM_BUFFER, camera_uniform_buffer_);
     glBufferData(GL_UNIFORM_BUFFER, 128, nullptr, GL_STATIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, cameraUniformBuffer_);
-    // glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, camera_uniform_buffer_);
   }
 
   void run()
   {
-    last_frame_ = std::chrono::high_resolution_clock::now();
+    last_frame_ = std::chrono::steady_clock::now();
     while (!glfwWindowShouldClose(window_)) {
-      const auto current_time = std::chrono::high_resolution_clock::now();
+      const auto current_time = std::chrono::steady_clock::now();
       delta_time_ = current_time - last_frame_;
       last_frame_ = current_time;
 
-      // Start the Dear ImGui frame
-      ImGui_ImplOpenGL3_NewFrame();
-      ImGui_ImplGlfw_NewFrame();
-      ImGui::NewFrame();
-
-      {
-        ImGui::Begin("Control");
-
-        ImGui::Text("%.3f ms/frame (%.1f FPS)", delta_time_.count(),
-                    1000.f / delta_time_.count());
-
-        static float camera_speed = camera_.speed();
-        ImGui::SliderFloat("Camera Speed", &camera_speed, 0.5, 30, "%.4f",
-                           2.0f);
-        camera_.set_speed(camera_speed);
-
-        if (ImGui::CollapsingHeader("Wind")) {
-          ImGui::SliderFloat("Magnitude", &wind_magnitude_, 0.5f, 3, "%.4f");
-          ImGui::SliderFloat("Wave Length", &wind_wave_length_, 0.5f, 2,
-                             "%.4f");
-          ImGui::SliderFloat("Wave Period", &wind_wave_period_, 0.5f, 2,
-                             "%.4f");
-        }
-
-        ImGui::End();
-      }
-
-      ImGui::Render();
-
       process_input(window_);
-
-      // render
-      glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-      // camera/view transformation
-      glm::mat4 view = camera_.view_matrix();
-      glm::mat4 projection = glm::perspective(glm::radians(camera_.zoom()),
-                                              static_cast<float>(width_) /
-                                                  static_cast<float>(height_),
-                                              0.1f, 100.0f);
-      glBindBufferBase(GL_UNIFORM_BUFFER, 0, cameraUniformBuffer_);
-      glBindBuffer(GL_UNIFORM_BUFFER, cameraUniformBuffer_);
-
-      glBufferSubData(GL_UNIFORM_BUFFER, 0, 64, &view);
-      glBufferSubData(GL_UNIFORM_BUFFER, 64, 64, &projection);
-
-      { // launch compute shaders!
-        grass_compute_shader_.use();
-        grass_compute_shader_.setFloat("current_time",
-                                       static_cast<float>(glfwGetTime()));
-        grass_compute_shader_.setFloat("delta_time",
-                                       delta_time_.count() / 1e3f);
-        grass_compute_shader_.setFloat("wind_magnitude", wind_magnitude_);
-        grass_compute_shader_.setFloat("wind_wave_length", wind_wave_length_);
-        grass_compute_shader_.setFloat("wind_wave_period", wind_wave_period_);
-
-        glDispatchCompute(static_cast<GLuint>(blades_.size()), 1, 1);
-      }
-
-      // Skybox
-      glDepthMask(GL_FALSE);
-      skybox_shader_.use();
-      glBindVertexArray(skybox_vao_);
-      glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_texture_);
-
-      glDrawArrays(GL_TRIANGLES, 0, 36);
-      glDepthMask(GL_TRUE);
-
-      // Terrain
-      terrain_shader_.use();
-      terrain_model_->render();
-
-      glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-      // Grass
-      glBindVertexArray(grass_vao_);
-      grass_shader_.use();
-      glDrawArraysIndirect(GL_PATCHES, reinterpret_cast<void*>(0));
-
-      ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+      render();
 
       glfwSwapBuffers(window_);
       glfwPollEvents();
     }
   }
 
+  void render()
+  {
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    draw_gui();
+    render_scene();
+
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+  }
+
+  void render_scene()
+  {
+    // camera/view transformation
+    glm::mat4 view = camera_.view_matrix();
+    glm::mat4 projection = glm::perspective(
+        glm::radians(camera_.zoom()),
+        static_cast<float>(width_) / static_cast<float>(height_), 0.1f, 100.0f);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, camera_uniform_buffer_);
+    glBindBuffer(GL_UNIFORM_BUFFER, camera_uniform_buffer_);
+
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, 64, &view);
+    glBufferSubData(GL_UNIFORM_BUFFER, 64, 64, &projection);
+
+    { // launch compute shaders!
+      grass_compute_shader_.use();
+      grass_compute_shader_.setFloat("current_time",
+                                     static_cast<float>(glfwGetTime()));
+      grass_compute_shader_.setFloat("delta_time", delta_time_.count() / 1e3f);
+      grass_compute_shader_.setFloat("wind_magnitude", wind_magnitude_);
+      grass_compute_shader_.setFloat("wind_wave_length", wind_wave_length_);
+      grass_compute_shader_.setFloat("wind_wave_period", wind_wave_period_);
+
+      glDispatchCompute(static_cast<GLuint>(blades_count_), 1, 1);
+    }
+
+    // Skybox
+    glDepthMask(GL_FALSE);
+    skybox_shader_.use();
+    glBindVertexArray(skybox_vao_);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_texture_);
+
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glDepthMask(GL_TRUE);
+
+    // Terrain
+    terrain_shader_.use();
+    terrain_model_->render();
+
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+    // Grass
+    glBindVertexArray(grass_vao_);
+    grass_shader_.use();
+    glDrawArraysIndirect(GL_PATCHES, reinterpret_cast<void*>(0));
+  }
+
+  void draw_gui()
+  { // Start the Dear ImGui frame
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::Begin("Control");
+
+    ImGui::Text("%.3f ms/frame (%.1f FPS)", delta_time_.count(),
+                1000.f / delta_time_.count());
+
+    static float camera_speed = camera_.speed();
+    ImGui::SliderFloat("Camera Speed", &camera_speed, 0.5, 30, "%.4f", 2.0f);
+    camera_.set_speed(camera_speed);
+
+    if (ImGui::CollapsingHeader("Wind")) {
+      ImGui::SliderFloat("Magnitude", &wind_magnitude_, 0.5f, 3, "%.4f");
+      ImGui::SliderFloat("Wave Length", &wind_wave_length_, 0.5f, 2, "%.4f");
+      ImGui::SliderFloat("Wave Period", &wind_wave_period_, 0.5f, 2, "%.4f");
+    }
+
+    ImGui::End();
+
+    ImGui::Render();
+  }
+
   ~App()
   {
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-
+    destroy_imgui();
     glfwDestroyWindow(window_);
     glfwTerminate();
   }
@@ -484,12 +517,12 @@ public:
     return height_;
   }
 
-  [[nodiscard]] bool right_clicking() const
+  [[nodiscard]] bool right_clicking() const noexcept
   {
     return right_clicking_;
   }
 
-  void set_right_clicking(bool right_clicking)
+  void set_right_clicking(bool right_clicking) noexcept
   {
     right_clicking_ = right_clicking;
   }
@@ -507,12 +540,13 @@ private:
   unsigned int grass_vao_ = 0;
   ShaderProgram grass_shader_{};
   ShaderProgram grass_compute_shader_{};
-  std::vector<Blade> blades_;
+
+  GLuint blades_count_ = 0;
 
   ShaderProgram skybox_shader_{};
   unsigned int skybox_vao_ = 0;
 
-  unsigned int cameraUniformBuffer_ = 0;
+  unsigned int camera_uniform_buffer_ = 0;
 
   // camera
   Camera camera_{glm::vec3(0.0f, 1.0f, 6.0f)};
@@ -523,7 +557,7 @@ private:
   float wind_wave_period_ = 1.0;
 
   DeltaDuration delta_time_;
-  std::chrono::high_resolution_clock::time_point last_frame_;
+  std::chrono::steady_clock::time_point last_frame_;
 
   unsigned int skybox_texture_;
 };

@@ -65,7 +65,6 @@ void main() {
     float width = inputBlades[index].v2.w;
     float stiffness = inputBlades[index].up.w;
 
-
     // Frustum culling
     vec4 v0ClipSpace = camera.proj * camera.view * vec4(v0, 1);
     vec4 v1ClipSpace = camera.proj * camera.view * vec4(v1, 1);
@@ -108,11 +107,11 @@ void main() {
 
     //  Wind
     vec3 windForce = 0.25 * wind_magnitude *
-      vec3(
-        sin(current_time * 3. / wind_wave_period + v0.x * 0.1 * 11 / wind_wave_length),
-        0,
-        sin(current_time * 3. / wind_wave_period + v0.z * 0.2 * 11 / wind_wave_length) * 0.1
-      );
+    vec3(
+    sin(current_time * 3. / wind_wave_period + v0.x * 0.1 * 11 / wind_wave_length),
+    0,
+    sin(current_time * 3. / wind_wave_period + v0.z * 0.2 * 11 / wind_wave_length) * 0.1
+    );
     float fd = 1 - abs(dot(normalize(windForce), normalize(v2 - v0)));
     float fr = dot((v2 - v0), up) / height;
     vec3 w = windForce * fd * fr;
