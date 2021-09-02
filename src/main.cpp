@@ -38,20 +38,10 @@ struct NumBlades {
 };
 
 struct Blade {
-  // Position and direction
-  glm::vec4 v0;
-  // Bezier point and height
-  glm::vec4 v1;
-  // Physical model guide and width
-  glm::vec4 v2;
-  // Up vector and stiffness coefficient
-  glm::vec4 up;
-
-  Blade(const glm::vec4& iv0, const glm::vec4& iv1, const glm::vec4& iv2,
-        const glm::vec4& iup)
-      : v0{iv0}, v1{iv1}, v2{iv2}, up{iup}
-  {
-  }
+  glm::vec4 v0; // xyz: Position, w: orientation (in radius)
+  glm::vec4 v1; // xyz: Bezier point w: height
+  glm::vec4 v2; // xyz: Physical model guide w: width
+  glm::vec4 up; // xyz: Up vector w: stiffness coefficient
 };
 
 // clang-format off

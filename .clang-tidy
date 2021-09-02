@@ -1,5 +1,8 @@
 ---
 Checks: '*,
+-altera-*,
+-concurrency-mt-unsafe,
+-cppcoreguidelines-avoid-c-arrays,
 -clang-analyzer-deadcode.DeadStores,
 -clang-analyzer-alpha.*,
 -cppcoreguidelines-pro-type-reinterpret-cast,
