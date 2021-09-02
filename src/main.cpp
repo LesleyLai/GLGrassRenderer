@@ -55,7 +55,7 @@ struct Blade {
 };
 
 // clang-format off
-constexpr std::array skybox_vertices = {
+constexpr float skybox_vertices[] = {
     // positions
     -1.0f,  1.0f, -1.0f,
     -1.0f, -1.0f, -1.0f,
@@ -242,7 +242,7 @@ public:
       glBindBuffer(GL_ARRAY_BUFFER, vbo);
       glBufferData(GL_ARRAY_BUFFER,
                    static_cast<GLsizei>(sizeof(skybox_vertices)),
-                   skybox_vertices.data(), GL_STATIC_DRAW);
+                   skybox_vertices, GL_STATIC_DRAW);
 
       glEnableVertexAttribArray(0);
       glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
