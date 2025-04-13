@@ -10,6 +10,7 @@
 #include <chrono>
 #include <string_view>
 #include <vector>
+#include <memory>
 
 #include "camera.hpp"
 #include "grasses.hpp"
@@ -173,7 +174,7 @@ void init_imgui(GLFWwindow* window)
   ImGui_ImplOpenGL3_Init("#version 450");
 
   // Load Fonts
-  io.Fonts->AddFontFromFileTTF("fonts/Roboto-Medium.ttf", 30.0f);
+  io.Fonts->AddFontFromFileTTF("./fonts/Roboto-Medium.ttf", 30.0f);
 }
 
 void destroy_imgui()

@@ -11,7 +11,7 @@ add_executable(app
         grasses.cpp grasses.hpp)
 target_link_libraries(app
         PRIVATE compiler_warnings
-        CONAN_PKG::glm CONAN_PKG::glfw CONAN_PKG::fmt CONAN_PKG::stb glad imgui
+        glm::glm glfw fmt::fmt stb glad imgui
         )
 add_dependencies(app assets)
 add_clangformat(app)
