@@ -81,16 +81,16 @@ void main() {
     if (v0OutFrustum && v1OutFrustum) return;
 
     // Distance culling
-    const float far1 = 0.95;
-    if (v0ClipSpace.z > far1 && v1ClipSpace.z > far1 && rand(index) > 0.5) {
+    const float far1 = 0.98;
+    if (v0ClipSpace.z > far1 && v1ClipSpace.z > far1 && rand(index) > 0.7) {
         return;
     }
-    const float far2 = 0.98;
-    if (v0ClipSpace.z > far2 && v1ClipSpace.z > far2 && rand(index) > 0.2) {
+    const float far2 = 0.99;
+    if (v0ClipSpace.z > far2 && v1ClipSpace.z > far2 && rand(index) > 0.3) {
         return;
     }
-    const float far3 = 0.99;
-    if (v0ClipSpace.z > far3 && v1ClipSpace.z > far3 && rand(index) > 0.1) {
+    const float far3 = 0.995;
+    if (v0ClipSpace.z > far3 && v1ClipSpace.z > far3 && rand(index) > 0.2) {
         return;
     }
 
