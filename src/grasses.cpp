@@ -1,7 +1,3 @@
-//
-// Created by laisi on 9/2/2021.
-//
-
 #include "grasses.hpp"
 
 #include <random>
@@ -9,6 +5,7 @@
 
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtc/noise.hpp>
 
 #include <GLFW/glfw3.h>
 
@@ -34,15 +31,16 @@ std::vector<Blade> generate_blades()
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<float> orientation_dis(0, glm::pi<float>());
-  std::uniform_real_distribution<float> height_dis(0.6f, 1.2f);
   std::uniform_real_distribution<float> dis(-1, 1);
 
   std::vector<Blade> blades;
+  // Generate grass blades using jittered stratified sampling
   for (int i = -200; i < 200; ++i) {
     for (int j = -200; j < 200; ++j) {
-      const auto x = static_cast<float>(i) / 10 - 1 + dis(gen) * 0.1f;
-      const auto y = static_cast<float>(j) / 10 - 1 + dis(gen) * 0.1f;
-      const auto blade_height = height_dis(gen);
+      const float x = static_cast<float>(i) / 10 - 1 + dis(gen) * 0.1f;
+      const float y = static_cast<float>(j) / 10 - 1 + dis(gen) * 0.1f;
+
+      const float blade_height = glm::simplex(glm::vec2(x, y)) * 0.5f + 0.7f;
 
       blades.emplace_back(
           glm::vec4(x, 0, y, orientation_dis(gen)),
@@ -134,7 +132,7 @@ void Grasses::update(DeltaDuration delta_time)
   grass_compute_shader_.setFloat("wind_wave_length", wind_wave_length);
   grass_compute_shader_.setFloat("wind_wave_period", wind_wave_period);
 
-  glDispatchCompute(static_cast<GLuint>(blades_count_), 1, 1);
+  glDispatchCompute(blades_count_, 1, 1);
 }
 
 void Grasses::render()

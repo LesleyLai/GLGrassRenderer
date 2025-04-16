@@ -16,6 +16,9 @@ Checks: '*,
 -readability-implicit-bool-conversion,
 -readability-else-after-return,
 -readability-named-parameter,
+-*-math-missing-parentheses,
+-*-identifier-length,
+-*-no-int-to-ptr,
 -llvm-include-order,
 -llvm-header-guard,
 -llvmlibc-*,
@@ -24,7 +27,7 @@ Checks: '*,
 -fuchsia-*,
 -hicpp-signed-bitwise,
 -google-runtime-references,
--google-build-using-namespace
+-google-build-using-namespace,
 '
 WarningsAsErrors: '*'
 HeaderFilterRegex: 'catch.hpp'
