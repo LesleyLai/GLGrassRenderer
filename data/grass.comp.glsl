@@ -8,6 +8,7 @@ local_size_z = 1) in;
 layout(binding = 0) uniform CameraBufferObject {
     mat4 view;
     mat4 proj;
+    vec3 position;
 } camera;
 
 uniform float current_time;

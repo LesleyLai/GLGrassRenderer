@@ -3,6 +3,7 @@
 layout(binding = 0) uniform CameraBufferObject {
     mat4 view;
     mat4 proj;
+    vec3 position;
 } camera;
 
 in VS_OUT

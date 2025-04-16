@@ -55,6 +55,11 @@ public:
     speed_ = speed;
   }
 
+  [[nodiscard]] glm::vec3 position() const
+  {
+    return position_;
+  }
+
 private:
   // Camera Attributes
   glm::vec3 position_;

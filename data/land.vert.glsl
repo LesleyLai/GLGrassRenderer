@@ -7,6 +7,7 @@ out vec2 TexCoord;
 layout(binding = 0) uniform CameraBufferObject {
     mat4 view;
     mat4 proj;
+    vec3 position;
 } camera;
 
 void main()

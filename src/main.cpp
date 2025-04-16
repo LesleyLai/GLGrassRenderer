@@ -275,7 +275,12 @@ public:
   {
     glGenBuffers(1, &camera_uniform_buffer_);
     glBindBuffer(GL_UNIFORM_BUFFER, camera_uniform_buffer_);
-    glBufferData(GL_UNIFORM_BUFFER, 128, nullptr, GL_STATIC_DRAW);
+    /*
+      mat4 view; // 64
+      mat4 proj; // 64
+      vec3 position; // 16
+    */
+    glBufferData(GL_UNIFORM_BUFFER, 140, nullptr, GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, camera_uniform_buffer_);
   }
 
@@ -308,6 +313,7 @@ public:
   void render_scene()
   {
     // camera/view transformation
+    glm::vec3 position = camera_.position();
     glm::mat4 view = camera_.view_matrix();
     glm::mat4 projection = glm::perspective(
         glm::radians(camera_.zoom()),
@@ -317,6 +323,7 @@ public:
 
     glBufferSubData(GL_UNIFORM_BUFFER, 0, 64, &view);
     glBufferSubData(GL_UNIFORM_BUFFER, 64, 64, &projection);
+    glBufferSubData(GL_UNIFORM_BUFFER, 128, 12, &position);
 
     grasses_.update(delta_time_);
 
