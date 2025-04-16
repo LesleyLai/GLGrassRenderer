@@ -186,7 +186,7 @@ void destroy_imgui()
 
 class App {
 public:
-  using DeltaDuration = std::chrono::duration<float, std::milli>;
+  using DeltaDuration = std::chrono::duration<double, std::milli>;
 
   App(int width, int height, std::string_view title)
       : width_{width}, height_{height}, delta_time_{}

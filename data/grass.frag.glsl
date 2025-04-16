@@ -43,8 +43,8 @@ void main() {
   vec3 diffuse = diff * mixedColor;
 
   // specular
-  float specularStrength = 0.2;
-  float shininess = 8.0;
+  float specularStrength = 0.3;
+  float shininess = 4.0;
   float spec = pow(max(dot(normal, halfwayDir), 0.0), shininess);
   vec3 specular = specularStrength * vec3(spec);
 
